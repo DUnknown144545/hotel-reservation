@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Receptionist Dashboard - Hotel Reservation</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="sidebar">
+    <h3>Receptionist</h3>
+    <a href="#" class="active" onclick="showSection('dashboard', this)">Dashboard</a>
+    <a href="#" onclick="showSection('bookings', this)">Bookings</a>
+    <a href="#" onclick="showSection('analytics', this)">Analytics</a>
+    <div class="bottom">
+      <p id="recName"></p>
+      <a href="#" onclick="logout()">Logout</a>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <section id="dashboard" class="active">
+      <h2>Dashboard</h2>
+      <div class="dashboard-cards">
+        <div class="card"><h4>Check-ins Today</h4><p>12</p></div>
+        <div class="card"><h4>Available Rooms</h4><p>8</p></div>
+        <div class="card"><h4>Pending Bookings</h4><p>5</p></div>
+      </div>
+      <div class="calendar">
+        <h3>November 2025</h3>
+        <table>
+          <tr><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th></tr>
+          <tr><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td><td>8</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section id="bookings">
+      <h2>Bookings</h2>
+      <table>
+        <tr><th>Booking ID</th><th>Guest</th><th>Room</th><th>Status</th></tr>
+        <tr><td>#001</td><td>John</td><td>102</td><td>Checked In</td></tr>
+        <tr><td>#002</td><td>Mary</td><td>201</td><td>Pending</td></tr>
+      </table>
+    </section>
+
+    <section id="analytics">
+      <h2>Analytics</h2>
+      <div class="dashboard-cards">
+        <div class="card"><h4>Guests Served</h4><p>215</p></div>
+        <div class="card"><h4>Rooms Cleaned</h4><p>32</p></div>
+        <div class="card"><h4>Revenue (Week)</h4><p>$4,800</p></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const user = JSON.parse(localStorage.getItem("loggedInUser"));
+    document.getElementById("recName").innerText = user ? user.username : "";
+
+    function showSection(id, el) {
+      document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+      document.querySelectorAll(".sidebar a").forEach(a => a.classList.remove("active"));
+      el.classList.add("active");
+    }
+
+    function logout() {
+      localStorage.removeItem("loggedInUser");
+      window.location.href = "index.html";
+    }
+  </script>
+</body>
+</html>
