@@ -19,27 +19,45 @@
   </div>
 
   <script>
-    function login() {
-      const username = document.getElementById("username").value.trim();
-      const password = document.getElementById("password").value.trim();
-      const role = document.getElementById("role").value;
+    //user and pass for each roles
+    const USERS = [
+    { username: "admin", password: "adminpass123", role: "Admin" },
+    { username: "reception1", password: "receptiopass123", role: "Receptionist" },
+    { username: "guest1", password: "guestpass123", role: "Guest" }
+];
 
-      if (!username || !password) {
+    function login() {
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const selectedRole = document.getElementById("role").value; 
+
+    if (!username || !password) {
         alert("Please fill in all fields");
         return;
-      }
-
-      if (username !== password) {
-        alert("Incorrect password (must match username)");
-        return;
-      }
-
-      localStorage.setItem("loggedInUser", JSON.stringify({ username, role }));
-
-      if (role === "Admin") window.location.href = "admin.html";
-      else if (role === "Receptionist") window.location.href = "receptionist.html";
-      else window.location.href = "guest.html";
     }
+
+    const user = USERS.find(u => u.username === username);
+
+    if (!user || user.password !== password) {
+        alert("Invalid username or password.");
+        return;
+    }
+
+    if (user.role !== selectedRole) {
+        alert(`You are logged in as a ${user.role}, please select the correct role in the dropdown.`);
+        return;
+    }
+
+    localStorage.setItem("loggedInUser", JSON.stringify({ username: user.username, role: user.role }));
+
+    if (user.role === "Admin") {
+        window.location.href = "admin.html";
+    } else if (user.role === "Receptionist") {
+        window.location.href = "receptionist.html";
+    } else {
+        window.location.href = "guest.html";
+    }
+}
   </script>
 </body>
 </html>
