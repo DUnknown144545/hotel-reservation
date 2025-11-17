@@ -76,6 +76,7 @@ app.post('/api/login', async (req, res) => {
     }
 
     try {
+        // Fetch user data including the 'status' column
         const query = 'SELECT * FROM users WHERE username = ?';
         const [results] = await db.promise().query(query, [username]);
 
@@ -94,6 +95,15 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ success: false, message: `You are logged in as a ${user.role}, please select the correct role` });
         }
 
+        // --- NEW STATUS CHECK ---
+        if (user.status !== 'Accepted') {
+            return res.status(403).json({ 
+                success: false, 
+                message: `Your account status is ${user.status}. You cannot log in until it is Accepted.` 
+            });
+        }
+        // --- END NEW STATUS CHECK ---
+
         res.json({
             success: true,
             message: 'Login successful',
@@ -110,13 +120,10 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/dashboard/stats', async (req, res) => {
     try {
         const totalRoomsQuery = 'SELECT COUNT(*) as total_rooms FROM rooms';
-        // Note: For occupied rooms, a room's status should be updated by a booking/check-in/out trigger.
-        // We use the room status for simplicity here.
         const occupiedRoomsQuery = 'SELECT COUNT(*) as occupied_rooms FROM rooms WHERE status = "Occupied"';
         const currentGuestsQuery = 'SELECT COUNT(DISTINCT user_id) as current_guests FROM bookings WHERE status = "Checked In"';
         const monthlyRevenueQuery = 'SELECT SUM(amount) as monthly_revenue FROM payments WHERE payment_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)';
 
-        // Use array destructuring for promise-based query results
         const [[totalRooms]] = await db.promise().query(totalRoomsQuery);
         const [[occupiedRooms]] = await db.promise().query(occupiedRoomsQuery);
         const [[currentGuests]] = await db.promise().query(currentGuestsQuery);
@@ -168,7 +175,7 @@ app.get('/api/rooms/available/:roomType', async (req, res) => {
 app.post('/api/rooms', async (req, res) => {
     const { room_number, room_type, price, status, capacity, floor_number, size_sqm, description, amenities, image_data } = req.body;
     const query = `INSERT INTO rooms (room_number, room_type, price, status, capacity, floor_number, size_sqm, description, amenities, image_data) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     try {
         const [result] = await db.promise().query(query, [room_number, room_type, price, status, capacity, floor_number, size_sqm, description, amenities, image_data]);
         res.json({ success: true, message: 'Room added successfully', roomId: result.insertId });
@@ -184,9 +191,9 @@ app.put('/api/rooms/:id', async (req, res) => {
     const { room_number, room_type, price, status, capacity, floor_number, size_sqm, description, amenities, image_data } = req.body;
 
     const query = `UPDATE rooms SET room_number = ?, room_type = ?, price = ?, status = ?, capacity = ?, 
-                   floor_number = ?, size_sqm = ?, description = ?, amenities = ?, image_data = ?
-                   WHERE id = ?`;
-                   
+                    floor_number = ?, size_sqm = ?, description = ?, amenities = ?, image_data = ?
+                    WHERE id = ?`;
+                    
     try {
         const [result] = await db.promise().query(query, [room_number, room_type, price, status, capacity, floor_number, size_sqm, description, amenities, image_data, id]);
         
@@ -238,13 +245,16 @@ app.get('/api/bookings/user/:userId', async (req, res) => {
     }
 });
 
-// Create new booking
 app.post('/api/bookings', async (req, res) => {
     const { user_id, guest_name, room_number, room_type, checkin_date, checkout_date, phone, status } = req.body;
-    const query = `INSERT INTO bookings (user_id, guest_name, room_number, room_type, checkin_date, checkout_date, phone, status) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+    
+    // Assume new bookings are 'Unpaid' by default
+    const payment_status = 'Unpaid'; 
+    
+    const query = `INSERT INTO bookings (user_id, guest_name, room_number, room_type, checkin_date, checkout_date, phone, status, payment_status) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     try {
-        const [result] = await db.promise().query(query, [user_id, guest_name, room_number, room_type, checkin_date, checkout_date, phone, status || 'Pending']);
+        const [result] = await db.promise().query(query, [user_id, guest_name, room_number, room_type, checkin_date, checkout_date, phone, status || 'Pending', payment_status]);
         res.json({ success: true, message: 'Booking created', bookingId: result.insertId });
     } catch (err) {
         console.error('Booking creation failed:', err);
@@ -252,13 +262,15 @@ app.post('/api/bookings', async (req, res) => {
     }
 });
 
-// Update booking
+// Update booking (Existing PUT /api/bookings/:id)
 app.put('/api/bookings/:id', async (req, res) => {
     const { id } = req.params;
     const { guest_name, room_number, room_type, checkin_date, checkout_date, phone, status } = req.body;
 
+    // NOTE: This endpoint is for editing booking details, not check-in/out status updates.
+    // The specific check-in/out logic is handled in the new /api/check/:id endpoint below.
     const query = `UPDATE bookings SET guest_name = ?, room_number = ?, room_type = ?, checkin_date = ?, 
-                   checkout_date = ?, phone = ?, status = ? WHERE id = ?`;
+                    checkout_date = ?, phone = ?, status = ? WHERE id = ?`;
 
     try {
         const [result] = await db.promise().query(query, [guest_name, room_number, room_type, checkin_date, checkout_date, phone, status, id]);
@@ -285,6 +297,110 @@ app.delete('/api/bookings/:id', async (req, res) => {
         res.json({ success: true, message: 'Booking deleted successfully' });
     } catch (err) {
         return res.status(500).json({ success: false, message: 'Deletion failed' });
+    }
+});
+
+app.put('/api/check/:id', async (req, res) => {
+    const { id } = req.params;
+    const { action } = req.body; // 'checkin' or 'checkout'
+
+    let conn;
+    try {
+        conn = await db.promise().getConnection();
+        await conn.beginTransaction();
+
+        // 1. Fetch current booking details
+        const [bookingResults] = await conn.query('SELECT room_number, status, payment_status FROM bookings WHERE id = ?', [id]);
+        if (bookingResults.length === 0) {
+            await conn.rollback();
+            return res.status(404).json({ success: false, message: 'Booking not found' });
+        }
+
+        const booking = bookingResults[0];
+        const roomNumber = booking.room_number;
+        const newBookingStatus = action === 'checkin' ? 'Checked In' : 'Checked Out';
+        const newRoomStatus = action === 'checkin' ? 'Occupied' : 'Available';
+        
+        // Validation for Check-in
+        if (action === 'checkin') {
+            if (booking.payment_status !== 'Paid') {
+                await conn.rollback();
+                return res.status(400).json({ success: false, message: `Cannot check-in. Payment status is ${booking.payment_status}.` });
+            }
+            if (booking.status === 'Checked In') {
+                await conn.rollback();
+                return res.status(400).json({ success: false, message: 'Guest is already Checked In.' });
+            }
+        }
+        
+        // Validation for Check-out
+        if (action === 'checkout' && booking.status !== 'Checked In') {
+            await conn.rollback();
+            return res.status(400).json({ success: false, message: 'Cannot check-out. Guest is not Checked In.' });
+        }
+
+        // 2. Update booking status
+        await conn.query('UPDATE bookings SET status = ? WHERE id = ?', [newBookingStatus, id]);
+
+        // 3. Update room status
+        await conn.query('UPDATE rooms SET status = ? WHERE room_number = ?', [newRoomStatus, roomNumber]);
+
+        await conn.commit();
+        res.json({ success: true, message: `Booking #${id} status updated to ${newBookingStatus}. Room ${roomNumber} is now ${newRoomStatus}.` });
+
+    } catch (err) {
+        if (conn) await conn.rollback();
+        console.error(`${action} failed:`, err);
+        res.status(500).json({ success: false, message: 'Transaction failed. Database error.' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ===== NEW: PAYMENT CONFIRMATION ENDPOINT (FIXED) =====
+
+app.put('/api/payments/confirm/:id', async (req, res) => {
+    const { id } = req.params; // Booking ID
+    const { image_data, amount } = req.body; // Base64 image and paid amount
+
+    if (!image_data) {
+        return res.status(400).json({ success: false, message: 'Payment image confirmation is required.' });
+    }
+
+    let conn;
+    try {
+        conn = await db.promise().getConnection();
+        await conn.beginTransaction();
+
+        // 1. Fetch required booking details (especially room_type)
+        const [bookingDetails] = await conn.query('SELECT room_type FROM bookings WHERE id = ?', [id]);
+        
+        if (bookingDetails.length === 0) {
+             await conn.rollback();
+             return res.status(404).json({ success: false, message: 'Booking not found.' });
+        }
+        const roomType = bookingDetails[0].room_type; // Get the room_type
+
+        // 2. Update booking payment status
+        await conn.query('UPDATE bookings SET payment_status = ? WHERE id = ?', ['Paid', id]);
+
+        // 3. Insert record into payments table (NOW INCLUDING room_type)
+        await conn.query(
+            `INSERT INTO payments (booking_id, room_type, amount, payment_method, status, image_data, payment_date) 
+             VALUES (?, ?, ?, ?, ?, ?, NOW())`, 
+            [id, roomType, amount, 'Cash/Proof', 'Paid', image_data]
+        );
+
+        await conn.commit();
+        res.json({ success: true, message: `Payment confirmed for booking #${id}.` });
+
+    } catch (err) {
+        if (conn) await conn.rollback();
+        // Log the exact database error on the server console
+        console.error('Payment confirmation failed:', err); 
+        res.status(500).json({ success: false, message: 'Payment confirmation failed. Database error.' });
+    } finally {
+        if (conn) conn.release();
     }
 });
 
@@ -317,7 +433,7 @@ app.get('/api/payments', async (req, res) => {
 app.post('/api/payments', async (req, res) => {
     const { booking_id, room_type, amount, payment_method, status } = req.body;
     const query = `INSERT INTO payments (booking_id, room_type, amount, payment_method, status) 
-                   VALUES (?, ?, ?, ?, ?)`;
+                    VALUES (?, ?, ?, ?, ?)`;
     try {
         const [result] = await db.promise().query(query, [booking_id, room_type, amount, payment_method, status || 'Paid']);
         res.json({ success: true, message: 'Payment recorded', paymentId: result.insertId });
@@ -358,7 +474,7 @@ app.get('/api/users', async (req, res) => {
     }
 });
 
-// 2. Update user status (Accept/Pending/Decline)
+// Update user status (Accept/Pending/Decline)
 app.put('/api/users/status/:id', async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
@@ -394,11 +510,117 @@ app.put('/api/users/status/:id', async (req, res) => {
     }
 });
 
-// =================================================================
-// 2. STATIC FILE MIDDLEWARE (MUST COME LAST)
-// =================================================================
-app.use(express.static(path.join(__dirname, '..', 'frontend')));
+app.put('/api/check/:id', async (req, res) => {
+    const { id } = req.params;
+    const { action } = req.body; 
 
+    let conn;
+    try {
+        conn = await db.promise().getConnection();
+        await conn.beginTransaction();
+
+        // 1. Fetch current booking details
+        const [bookingResults] = await conn.query('SELECT room_number, status, payment_status FROM bookings WHERE id = ?', [id]);
+        if (bookingResults.length === 0) {
+            await conn.rollback();
+            return res.status(404).json({ success: false, message: 'Booking not found' });
+        }
+
+        const booking = bookingResults[0];
+        const roomNumber = booking.room_number;
+        const newBookingStatus = action === 'checkin' ? 'Checked In' : 'Checked Out';
+        const newRoomStatus = action === 'checkin' ? 'Occupied' : 'Available';
+        
+        // Validation for Check-in
+        if (action === 'checkin') {
+            if (booking.payment_status !== 'Paid') {
+                await conn.rollback();
+                return res.status(400).json({ success: false, message: `Cannot check-in. Payment status is ${booking.payment_status}.` });
+            }
+            if (booking.status === 'Checked In') {
+                await conn.rollback();
+                return res.status(400).json({ success: false, message: 'Guest is already Checked In.' });
+            }
+        }
+        
+        // Validation for Check-out
+        if (action === 'checkout' && booking.status !== 'Checked In') {
+            await conn.rollback();
+            return res.status(400).json({ success: false, message: 'Cannot check-out. Guest is not Checked In.' });
+        }
+
+        // 2. Update booking status
+        await conn.query('UPDATE bookings SET status = ? WHERE id = ?', [newBookingStatus, id]);
+
+        // 3. Update room status
+        await conn.query('UPDATE rooms SET status = ? WHERE room_number = ?', [newRoomStatus, roomNumber]);
+
+        await conn.commit();
+        res.json({ success: true, message: `Booking #${id} status updated to ${newBookingStatus}. Room ${roomNumber} is now ${newRoomStatus}.` });
+
+    } catch (err) {
+        if (conn) await conn.rollback();
+        console.error(`${action} failed:`, err);
+        res.status(500).json({ success: false, message: 'Transaction failed. Database error.' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ===== PAYMENT ENDPOINTS (GROUPED) =====
+
+// Get all payments
+app.get('/api/payments', async (req, res) => { /* ... get all payments logic ... */ });
+
+// Create payment
+app.post('/api/payments', async (req, res) => { /* ... create payment logic ... */ });
+
+// --- PAYMENT CONFIRMATION ENDPOINT ---
+app.put('/api/payments/confirm/:id', async (req, res) => {
+    const { id } = req.params; // Booking ID
+    const { image_data, amount } = req.body; // Base64 image and paid amount
+
+    if (!image_data) {
+        return res.status(400).json({ success: false, message: 'Payment image confirmation is required.' });
+    }
+
+    let conn;
+    try {
+        conn = await db.promise().getConnection();
+        await conn.beginTransaction();
+
+        // 1. Fetch required booking details (especially room_type)
+        const [bookingDetails] = await conn.query('SELECT room_type FROM bookings WHERE id = ?', [id]);
+        
+        if (bookingDetails.length === 0) {
+             await conn.rollback();
+             return res.status(404).json({ success: false, message: 'Booking not found.' });
+        }
+        const roomType = bookingDetails[0].room_type; // Get the room_type
+
+        // 2. Update booking payment status
+        await conn.query('UPDATE bookings SET payment_status = ? WHERE id = ?', ['Paid', id]);
+
+        // 3. Insert record into payments table (NOW INCLUDING room_type)
+        await conn.query(
+            `INSERT INTO payments (booking_id, room_type, amount, payment_method, status, image_data, payment_date) 
+             VALUES (?, ?, ?, ?, ?, ?, NOW())`, 
+            [id, roomType, amount, 'Cash/Proof', 'Paid', image_data]
+        );
+
+        await conn.commit();
+        res.json({ success: true, message: `Payment confirmed for booking #${id}.` });
+
+    } catch (err) {
+        if (conn) await conn.rollback();
+        console.error('Payment confirmation failed:', err); 
+        res.status(500).json({ success: false, message: 'Payment confirmation failed. Database error.' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
 
 // Start server
