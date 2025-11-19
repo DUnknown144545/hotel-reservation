@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guest Dashboard - Hotel Reservation</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    body {
+      display: flex;
+      min-height: 100vh;
+      background: #f5f6fa;
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    .sidebar {
+      width: 220px;
+      background: #2f3640;
+      color: white;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: fixed;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .sidebar h3 { text-align: center; margin-bottom: 20px; }
+
+    .sidebar a {
+      color: white;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 5px;
+      transition: background 0.3s;
+    }
+
+    .sidebar a.active,
+    .sidebar a:hover {
+      background: #40739e;
+    }
+
+    .sidebar i {
+      width: 20px;
+      text-align: center;
+      font-size: 16px;
+    }
+
+    .bottom {
+      border-top: 1px solid rgba(255,255,255,0.2);
+      padding-top: 10px;
+      margin-top: 20px;
+    }
+
+    .main-content {
+      margin-left: 240px;
+      padding: 20px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    section { display: none; }
+    section.active { display: block; }
+
+    .dashboard-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    .card h4 { 
+      margin-bottom: 10px; 
+      color: #40739e; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      gap: 8px;
+      font-size: 16px;
+    }
+    .card i { color: #40739e; font-size: 24px; }
+    .card p { font-size: 32px; font-weight: bold; margin: 10px 0 0 0; }
+
+    /* Room Gallery */
+    .room-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 25px;
+      margin-top: 30px;
+    }
+
+    .room-card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+      overflow: hidden;
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .room-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+    }
+
+    .room-card img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+    }
+
+    .room-card-content {
+      padding: 20px;
+    }
+
+    .room-card h3 {
+      margin: 0 0 10px 0;
+      color: #2f3640;
+    }
+
+    .room-card .price {
+      font-size: 24px;
+      font-weight: bold;
+      color: #40739e;
+      margin: 10px 0;
+    }
+
+    .room-card .description {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 15px;
+      line-height: 1.5;
+    }
+
+    .room-card .amenities {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .amenity-badge {
+      background: #e8f4f8;
+      color: #40739e;
+      padding: 5px 10px;
+      border-radius: 15px;
+      font-size: 12px;
+    }
+
+    .room-card button {
+      width: 100%;
+      background: #40739e;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background 0.3s;
+    }
+
+    .room-card button:hover { background: #2f3640; }
+    .room-card button:disabled { 
+      background: #ccc; 
+      cursor: not-allowed; 
+    }
+
+    /* Tables */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 25px;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+    }
+
+    .data-table th, .data-table td {
+      border: 1px solid #ddd;
+      padding: 12px;
+      text-align: left;
+    }
+
+    .data-table th {
+      background-color: #40739e;
+      color: white;
+      font-weight: bold;
+    }
+
+    .data-table tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+
+    .data-table tr:hover {
+      background-color: #f0f0f0;
+    }
+
+    .status-paid, .status-checked-in { 
+      color: #27ae60; 
+      font-weight: bold; 
+    }
+    .status-pending, .status-unpaid { 
+      color: #f39c12; 
+      font-weight: bold; 
+    }
+    .status-checked-out { 
+      color: #7f8c8d; 
+      font-weight: bold; 
+    }
+    .status-cancelled { 
+      color: #e74c3c; 
+      font-weight: bold; 
+    }
+
+    /* Booking Form */
+    .booking-form {
+      background: #fff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      max-width: 600px;
+      margin: 20px auto;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: #2f3640;
+    }
+
+    .form-group input, 
+    .form-group select {
+      width: 100%;
+      padding: 12px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+      box-sizing: border-box;
+      font-size: 14px;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #40739e;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      border-radius: 5px;
+      border: none;
+      background: #40739e;
+      color: white;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+
+    .btn-primary:hover { background: #2f3640; }
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.6);
+      overflow-y: auto;
+    }
+
+    .modal-content {
+      background-color: #fff;
+      margin: 5% auto;
+      padding: 30px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 5px 30px rgba(0,0,0,0.3);
+    }
+
+    .modal-content h3 { 
+      margin-top: 0; 
+      color: #2f3640;
+      border-bottom: 2px solid #40739e;
+      padding-bottom: 10px;
+    }
+
+    .payment-summary {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+
+    .payment-summary p {
+      margin: 8px 0;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .payment-summary .total {
+      font-size: 20px;
+      font-weight: bold;
+      color: #40739e;
+      border-top: 2px solid #ddd;
+      padding-top: 10px;
+      margin-top: 10px;
+    }
+
+    .payment-methods {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin: 20px 0;
+    }
+
+    .payment-method {
+      border: 2px solid #ddd;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .payment-method:hover {
+      border-color: #40739e;
+      background: #f0f7fa;
+    }
+
+    .payment-method.selected {
+      border-color: #40739e;
+      background: #e8f4f8;
+    }
+
+    .payment-method i {
+      font-size: 32px;
+      color: #40739e;
+      margin-bottom: 10px;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .modal-buttons button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+
+    .btn-confirm { 
+      background: #27ae60; 
+      color: white; 
+    }
+    .btn-confirm:hover { background: #229954; }
+
+    .btn-cancel { 
+      background: #e74c3c; 
+      color: white; 
+    }
+    .btn-cancel:hover { background: #c0392b; }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+      font-size: 16px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #666;
+    }
+
+    .empty-state i {
+      font-size: 64px;
+      color: #ddd;
+      margin-bottom: 20px;
+    }
+
+    .filter-bar {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .filter-bar select {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+
+    .checkout-history-item {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      margin-bottom: 15px;
+    }
+
+    .checkout-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+
+    .checkout-details {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
+
+    .detail-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .detail-label {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 5px;
+    }
+
+    .detail-value {
+      font-size: 16px;
+      font-weight: bold;
+      color: #2f3640;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="sidebar">
+    <div>
+      <h3>Guest Panel</h3>
+      <a href="#" class="active" onclick="showSection('dashboard', this)">
+        <i class="fa-solid fa-gauge"></i> Dashboard
+      </a>
+      <a href="#" onclick="showSection('browse-rooms', this)">
+        <i class="fa-solid fa-bed"></i> Browse Rooms
+      </a>
+      <a href="#" onclick="showSection('booking', this)">
+        <i class="fa-solid fa-calendar-plus"></i> New Booking
+      </a>
+      <a href="#" onclick="showSection('my-bookings', this)">
+        <i class="fa-solid fa-calendar-check"></i> My Bookings
+      </a>
+      <a href="#" onclick="showSection('checkout-history', this)">
+        <i class="fa-solid fa-clock-rotate-left"></i> Checkout History
+      </a>
+      <a href="#" onclick="showSection('payments', this)">
+        <i class="fa-solid fa-credit-card"></i> Payments
+      </a>
+      <a href="#" onclick="showSection('profile', this)">
+        <i class="fa-solid fa-user"></i> Profile
+      </a>
+    </div>
+    <div class="bottom">
+      <p id="guestName" style="margin: 0 0 10px 0; text-align: center;"></p>
+      <a href="#" onclick="logout()">
+        <i class="fa-solid fa-right-from-bracket"></i> Logout
+      </a>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <!-- DASHBOARD -->
+    <section id="dashboard" class="active">
+      <h2>Welcome Back!</h2>
+      <div class="dashboard-cards">
+        <div class="card">
+          <h4><i class="fa-solid fa-calendar-check"></i> Total Bookings</h4>
+          <p id="stat-total-bookings">0</p>
+        </div>
+        <div class="card">
+          <h4><i class="fa-solid fa-bed"></i> Active Stays</h4>
+          <p id="stat-active-stays">0</p>
+        </div>
+        <div class="card">
+          <h4><i class="fa-solid fa-clock"></i> Pending</h4>
+          <p id="stat-pending">0</p>
+        </div>
+        <div class="card">
+          <h4><i class="fa-solid fa-check-circle"></i> Completed</h4>
+          <p id="stat-completed">0</p>
+        </div>
+      </div>
+
+      <h3 style="margin-top: 40px;">Quick Actions</h3>
+      <div class="dashboard-cards">
+        <div class="card" style="cursor: pointer;" onclick="showSection('browse-rooms')">
+          <i class="fa-solid fa-bed" style="font-size: 48px; margin-bottom: 15px;"></i>
+          <h4>Browse Rooms</h4>
+          <p style="font-size: 14px; color: #666; font-weight: normal;">Explore available rooms</p>
+        </div>
+        <div class="card" style="cursor: pointer;" onclick="showSection('booking')">
+          <i class="fa-solid fa-calendar-plus" style="font-size: 48px; margin-bottom: 15px;"></i>
+          <h4>New Booking</h4>
+          <p style="font-size: 14px; color: #666; font-weight: normal;">Create a reservation</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- BROWSE ROOMS -->
+    <section id="browse-rooms">
+      <h2>Available Rooms</h2>
+      <div class="filter-bar">
+        <label><strong>Filter by Type:</strong></label>
+        <select id="room-filter" onchange="filterRooms()">
+          <option value="all">All Rooms</option>
+          <option value="Single Room">Single Room</option>
+          <option value="Double Room">Double Room</option>
+          <option value="Suite">Suite</option>
+        </select>
+      </div>
+      <div id="rooms-gallery" class="loading">Loading rooms...</div>
+    </section>
+
+    <!-- NEW BOOKING -->
+    <section id="booking">
+      <h2>Create New Booking</h2>
+      <div class="booking-form">
+        <div class="form-group">
+          <label>Your Name:</label>
+          <input type="text" id="booking-guest-name" placeholder="Enter your full name" required>
+        </div>
+        
+        <div class="form-group">
+          <label>Phone Number:</label>
+          <input type="text" id="booking-phone" placeholder="+63 XXX-XXX-XXXX" required>
+        </div>
+        
+        <div class="form-group">
+          <label>Room Type:</label>
+          <select id="booking-room-type" onchange="loadAvailableRooms()">
+            <option value="">-- Select Room Type --</option>
+            <option value="Single Room">Single Room - $50/night</option>
+            <option value="Double Room">Double Room - $80/night</option>
+            <option value="Suite">Suite - $120/night</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>Room Number:</label>
+          <select id="booking-room-number">
+            <option value="">-- Select room type first --</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>Check-in Date:</label>
+          <input type="date" id="booking-checkin" required>
+        </div>
+        
+        <div class="form-group">
+          <label>Check-out Date:</label>
+          <input type="date" id="booking-checkout" required>
+        </div>
+        
+        <button class="btn-primary" onclick="createBooking()">
+          <i class="fa-solid fa-calendar-check"></i> Create Booking & Pay
+        </button>
+      </div>
+    </section>
+
+    <!-- MY BOOKINGS -->
+    <section id="my-bookings">
+      <h2>My Bookings</h2>
+      <div id="bookings-container" class="loading">Loading bookings...</div>
+    </section>
+
+    <!-- CHECKOUT HISTORY -->
+    <section id="checkout-history">
+      <h2>Checkout History</h2>
+      <div id="checkout-container" class="loading">Loading checkout history...</div>
+    </section>
+
+    <!-- PAYMENTS -->
+    <section id="payments">
+      <h2>Payment History</h2>
+      <div id="payments-container" class="loading">Loading payments...</div>
+    </section>
+
+    <!-- PROFILE -->
+    <section id="profile">
+      <h2>My Profile</h2>
+      <div class="booking-form" style="max-width: 500px;">
+        <div class="form-group">
+          <label>Username:</label>
+          <input type="text" id="profile-username" readonly style="background: #f0f0f0;">
+        </div>
+        <div class="form-group">
+          <label>Role:</label>
+          <input type="text" value="Guest" readonly style="background: #f0f0f0;">
+        </div>
+        <div class="form-group">
+          <label>User ID:</label>
+          <input type="text" id="profile-id" readonly style="background: #f0f0f0;">
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Payment Modal -->
+  <div id="paymentModal" class="modal">
+    <div class="modal-content">
+      <h3><i class="fa-solid fa-credit-card"></i> Complete Payment</h3>
+      
+      <div class="payment-summary" id="payment-summary"></div>
+
+      <label style="display: block; margin-bottom: 10px; font-weight: bold;">Select Payment Method:</label>
+      <div class="payment-methods">
+        <div class="payment-method" onclick="selectPaymentMethod('Visa')">
+          <i class="fa-brands fa-cc-visa"></i>
+          <div>Visa</div>
+        </div>
+        <div class="payment-method" onclick="selectPaymentMethod('MasterCard')">
+          <i class="fa-brands fa-cc-mastercard"></i>
+          <div>MasterCard</div>
+        </div>
+        <div class="payment-method" onclick="selectPaymentMethod('GCash')">
+          <i class="fa-solid fa-mobile-screen-button"></i>
+          <div>GCash</div>
+        </div>
+      </div>
+
+      <div class="modal-buttons">
+        <button class="btn-confirm" onclick="confirmPayment()">
+          <i class="fa-solid fa-check"></i> Confirm Payment
+        </button>
+        <button class="btn-cancel" onclick="closePaymentModal()">
+          <i class="fa-solid fa-times"></i> Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+    const user = JSON.parse(localStorage.getItem("loggedInUser"));
+    
+    if (!user || user.role !== 'Guest') {
+      alert('Access denied. Guest only.');
+      window.location.href = 'index.html';
+    }
+
+    document.getElementById("guestName").innerText = user.username;
+    document.getElementById("profile-username").value = user.username;
+    document.getElementById("profile-id").value = user.id;
+
+    let currentBookingId = null;
+    let currentPaymentAmount = 0;
+    let currentRoomType = '';
+    let selectedPaymentMethod = '';
+    let allRooms = [];
+
+    // Initialize
+    loadDashboardStats();
+    loadAllRooms();
+    setMinDate();
+
+    function showSection(id, el) {
+      document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+      document.querySelectorAll(".sidebar a").forEach(a => a.classList.remove("active"));
+      if (el) el.classList.add("active");
+
+      if (id === 'my-bookings') loadMyBookings();
+      if (id === 'checkout-history') loadCheckoutHistory();
+      if (id === 'payments') loadPayments();
+      if (id === 'dashboard') loadDashboardStats();
+      if (id === 'browse-rooms') displayRooms();
+    }
+
+    function logout() {
+      localStorage.removeItem("loggedInUser");
+      window.location.href = "index.html";
+    }
+
+    function setMinDate() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('booking-checkin').min = today;
+      document.getElementById('booking-checkout').min = today;
+      
+      document.getElementById('booking-checkin').addEventListener('change', function() {
+        document.getElementById('booking-checkout').min = this.value;
+      });
+    }
+
+    // Dashboard Stats
+    async function loadDashboardStats() {
+      try {
+        const response = await fetch(`${API_URL}/bookings/user/${user.id}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          const bookings = data.bookings;
+          const activeStays = bookings.filter(b => b.status === 'Checked In').length;
+          const pending = bookings.filter(b => b.status === 'Pending').length;
+          const completed = bookings.filter(b => b.status === 'Checked Out').length;
+          
+          document.getElementById('stat-total-bookings').textContent = bookings.length;
+          document.getElementById('stat-active-stays').textContent = activeStays;
+          document.getElementById('stat-pending').textContent = pending;
+          document.getElementById('stat-completed').textContent = completed;
+        }
+      } catch (error) {
+        console.error('Error loading stats:', error);
+      }
+    }
+
+    // Load All Rooms
+    async function loadAllRooms() {
+      try {
+        const response = await fetch(`${API_URL}/rooms`);
+        const data = await response.json();
+        
+        if (data.success) {
+          allRooms = data.rooms.filter(room => room.status === 'Available');
+          displayRooms();
+        }
+      } catch (error) {
+        console.error('Error loading rooms:', error);
+        document.getElementById('rooms-gallery').innerHTML = '<div class="empty-state"><i class="fa-solid fa-exclamation-circle"></i><p>Error loading rooms</p></div>';
+      }
+    }
+
+    function filterRooms() {
+      const filter = document.getElementById('room-filter').value;
+      displayRooms(filter);
+    }
+
+    function displayRooms(filter = 'all') {
+      const container = document.getElementById('rooms-gallery');
+      
+      let filteredRooms = allRooms;
+      if (filter !== 'all') {
+        filteredRooms = allRooms.filter(room => room.room_type === filter);
+      }
+
+      if (filteredRooms.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-bed"></i><p>No rooms available</p></div>';
+        return;
+      }
+
+      let html = '<div class="room-gallery">';
+      
+      filteredRooms.forEach(room => {
+        const imageUrl = room.image_data || 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=400';
+        const amenities = room.amenities ? room.amenities.split(',') : ['WiFi', 'AC', 'TV'];
+        
+        html += `
+          <div class="room-card">
+            <img src="${imageUrl}" alt="${room.room_type}" onerror="this.src='https://images.unsplash.com/photo-1590490360182-c33d57733427?w=400'">
+            <div class="room-card-content">
+              <h3>${room.room_type}</h3>
+              <p class="description">${room.description || 'Comfortable and well-equipped room with modern amenities.'}</p>
+              <div class="amenities">
+                ${amenities.map(a => `<span class="amenity-badge"><i class="fa-solid fa-check"></i> ${a.trim()}</span>`).join('')}
+              </div>
+              <p class="price">$${parseFloat(room.price).toFixed(2)} <span style="font-size: 14px; color: #666;">/ night</span></p>
+              <p style="color: #666; font-size: 14px; margin-bottom: 10px;">
+                <i class="fa-solid fa-door-open"></i> Room ${room.room_number}
+              </p>
+              <button onclick="quickBookRoom('${room.room_type}', ${room.price}, '${room.room_number}')">
+                <i class="fa-solid fa-calendar-check"></i> Book Now
+              </button>
+            </div>
+          </div>
+        `;
+      });
+      
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    function quickBookRoom(roomType, price, roomNumber) {
+      showSection('booking');
+      document.getElementById('booking-guest-name').value = user.username;
+      document.getElementById('booking-room-type').value = roomType;
+      loadAvailableRooms().then(() => {
+        document.getElementById('booking-room-number').value = roomNumber;
+      });
+    }
+
+    // Load Available Rooms for Booking Form
+    async function loadAvailableRooms() {
+      const roomType = document.getElementById('booking-room-type').value;
+      const roomSelect = document.getElementById('booking-room-number');
+      
+      if (!roomType) {
+        roomSelect.innerHTML = '<option value="">-- Select room type first --</option>';
+        return;
+      }
+
+      roomSelect.innerHTML = '<option value="">Loading...</option>';
+
+      try {
+        const response = await fetch(`${API_URL}/rooms/available/${encodeURIComponent(roomType)}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          let html = '<option value="">-- Select a room --</option>';
+          data.rooms.forEach(room => {
+            html += `<option value="${room.room_number}">Room ${room.room_number}</option>`;
+          });
+          roomSelect.innerHTML = html;
+        } else {
+          roomSelect.innerHTML = '<option value="">No rooms available</option>';
+        }
+      } catch (error) {
+        console.error('Error loading available rooms:', error);
+        roomSelect.innerHTML = '<option value="">Error loading rooms</option>';
+      }
+    }
+
+    // Create Booking
+    async function createBooking() {
+      const guestName = document.getElementById('booking-guest-name').value.trim();
+      const phone = document.getElementById('booking-phone').value.trim();
+      const roomType = document.getElementById('booking-room-type').value;
+      const roomNumber = document.getElementById('booking-room-number').value;
+      const checkinDate = document.getElementById('booking-checkin').value;
+      const checkoutDate = document.getElementById('booking-checkout').value;
+
+      if (!guestName || !phone || !roomType || !roomNumber || !checkinDate || !checkoutDate) {
+        alert('Please fill in all fields');
+        return;
+      }
+
+      if (new Date(checkoutDate) <= new Date(checkinDate)) {
+        alert('Check-out date must be after check-in date');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/bookings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: user.id,
+            guest_name: guestName,
+            phone: phone,
+            room_type: roomType,
+            room_number: roomNumber,
+            checkin_date: checkinDate,
+            checkout_date: checkoutDate,
+            status: 'Pending'
+          })
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+          currentBookingId = data.bookingId;
+          
+          // Calculate amount
+          const checkin = new Date(checkinDate);
+          const checkout = new Date(checkoutDate);
+          const nights = Math.ceil((checkout - checkin) / (1000 * 60 * 60 * 24));
+          const prices = { 'Single Room': 50, 'Double Room': 80, 'Suite': 120 };
+          currentPaymentAmount = nights * prices[roomType];
+          currentRoomType = roomType;
+          
+          // Show payment modal
+          document.getElementById('payment-summary').innerHTML = `
+            <p><span><strong>Booking ID:</strong></span> <span>#${currentBookingId}</span></p>
+            <p><span><strong>Room:</strong></span> <span>${roomType} - ${roomNumber}</span></p>
+            <p><span><strong>Check-in:</strong></span> <span>${new Date(checkinDate).toLocaleDateString()}</span></p>
+            <p><span><strong>Check-out:</strong></span> <span>${new Date(checkoutDate).toLocaleDateString()}</span></p>
+            <p><span><strong>Nights:</strong></span> <span>${nights}</span></p>
+            <p class="total"><span>Total Amount:</span> <span>${currentPaymentAmount.toFixed(2)}</span></p>
+          `;
+          
+          selectedPaymentMethod = '';
+          document.querySelectorAll('.payment-method').forEach(el => el.classList.remove('selected'));
+          document.getElementById('paymentModal').style.display = 'block';
+        } else {
+          alert(data.message || 'Error creating booking');
+        }
+      } catch (error) {
+        console.error('Error creating booking:', error);
+        alert('Error creating booking. Please try again.');
+      }
+    }
+
+    // Payment Methods
+    function selectPaymentMethod(method) {
+      selectedPaymentMethod = method;
+      document.querySelectorAll('.payment-method').forEach(el => {
+        el.classList.remove('selected');
+      });
+      event.target.closest('.payment-method').classList.add('selected');
+    }
+
+    function closePaymentModal() {
+      document.getElementById('paymentModal').style.display = 'none';
+      selectedPaymentMethod = '';
+    }
+
+    async function confirmPayment() {
+      if (!selectedPaymentMethod) {
+        alert('Please select a payment method');
+        return;
+      }
+
+      try {
+        // First, create payment record
+        const paymentResponse = await fetch(`${API_URL}/payments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            booking_id: currentBookingId,
+            room_type: currentRoomType,
+            amount: currentPaymentAmount,
+            payment_method: selectedPaymentMethod,
+            status: 'Paid'
+          })
+        });
+
+        const paymentData = await paymentResponse.json();
+        
+        if (paymentData.success) {
+          // Update booking payment status
+          const updateResponse = await fetch(`${API_URL}/bookings/${currentBookingId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              payment_status: 'Paid'
+            })
+          });
+
+          alert('✅ Booking and payment successful!');
+          closePaymentModal();
+          
+          // Clear form
+          document.getElementById('booking-guest-name').value = '';
+          document.getElementById('booking-phone').value = '';
+          document.getElementById('booking-room-type').value = '';
+          document.getElementById('booking-room-number').innerHTML = '<option value="">-- Select room type first --</option>';
+          document.getElementById('booking-checkin').value = '';
+          document.getElementById('booking-checkout').value = '';
+          
+          // Refresh data
+          loadDashboardStats();
+          showSection('my-bookings');
+        } else {
+          alert(paymentData.message || 'Payment failed');
+        }
+      } catch (error) {
+        console.error('Error processing payment:', error);
+        alert('Error processing payment. Please try again.');
+      }
+    }
+
+    // My Bookings
+    async function loadMyBookings() {
+      const container = document.getElementById('bookings-container');
+      container.innerHTML = '<div class="loading">Loading bookings...</div>';
+
+      try {
+        const response = await fetch(`${API_URL}/bookings/user/${user.id}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          const activeBookings = data.bookings.filter(b => b.status !== 'Checked Out' && b.status !== 'Cancelled');
+          displayBookings(activeBookings, container);
+        } else {
+          container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-calendar-xmark"></i><p>Error loading bookings</p></div>';
+        }
+      } catch (error) {
+        console.error('Error loading bookings:', error);
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-exclamation-circle"></i><p>Error loading bookings</p></div>';
+      }
+    }
+
+    function displayBookings(bookings, container) {
+      if (bookings.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-calendar"></i><p>No active bookings yet. Create your first booking!</p></div>';
+        return;
+      }
+
+      let html = '<table class="data-table"><thead><tr><th>Booking ID</th><th>Room</th><th>Check-in</th><th>Check-out</th><th>Phone</th><th>Payment</th><th>Status</th></tr></thead><tbody>';
+      
+      bookings.forEach(booking => {
+        const paymentStatus = booking.payment_status || 'Unpaid';
+        const paymentClass = paymentStatus === 'Paid' ? 'status-paid' : 'status-unpaid';
+        
+        html += `
+          <tr>
+            <td><strong>#${booking.id}</strong></td>
+            <td>${booking.room_number} <br><small style="color: #666;">(${booking.room_type})</small></td>
+            <td>${new Date(booking.checkin_date).toLocaleDateString()}</td>
+            <td>${new Date(booking.checkout_date).toLocaleDateString()}</td>
+            <td>${booking.phone || '-'}</td>
+            <td class="${paymentClass}">${paymentStatus}</td>
+            <td class="status-${booking.status.toLowerCase().replace(' ', '-')}">${booking.status}</td>
+          </tr>
+        `;
+      });
+      
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    // Checkout History
+    async function loadCheckoutHistory() {
+      const container = document.getElementById('checkout-container');
+      container.innerHTML = '<div class="loading">Loading checkout history...</div>';
+
+      try {
+        const response = await fetch(`${API_URL}/bookings/user/${user.id}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          const completedBookings = data.bookings.filter(b => b.status === 'Checked Out');
+          displayCheckoutHistory(completedBookings, container);
+        } else {
+          container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-history"></i><p>Error loading checkout history</p></div>';
+        }
+      } catch (error) {
+        console.error('Error loading checkout history:', error);
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-exclamation-circle"></i><p>Error loading checkout history</p></div>';
+      }
+    }
+
+    function displayCheckoutHistory(bookings, container) {
+      if (bookings.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-clock-rotate-left"></i><p>No checkout history yet.</p></div>';
+        return;
+      }
+
+      let html = '';
+      
+      bookings.forEach(booking => {
+        const checkinDate = new Date(booking.checkin_date);
+        const checkoutDate = new Date(booking.checkout_date);
+        const nights = Math.ceil((checkoutDate - checkinDate) / (1000 * 60 * 60 * 24));
+        const prices = { 'Single Room': 50, 'Double Room': 80, 'Suite': 120 };
+        const totalAmount = nights * (prices[booking.room_type] || 0);
+
+        html += `
+          <div class="checkout-history-item">
+            <div class="checkout-header">
+              <div>
+                <h3 style="margin: 0; color: #2f3640;">Booking #${booking.id}</h3>
+                <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
+                  <i class="fa-solid fa-calendar"></i> 
+                  ${checkinDate.toLocaleDateString()} - ${checkoutDate.toLocaleDateString()}
+                </p>
+              </div>
+              <div class="status-checked-out" style="font-size: 18px;">
+                <i class="fa-solid fa-check-circle"></i> Checked Out
+              </div>
+            </div>
+            <div class="checkout-details">
+              <div class="detail-item">
+                <span class="detail-label">Room Details</span>
+                <span class="detail-value">${booking.room_type}<br><small style="font-size: 12px; color: #666;">Room ${booking.room_number}</small></span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Duration</span>
+                <span class="detail-value">${nights} Night${nights > 1 ? 's' : ''}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Guest Name</span>
+                <span class="detail-value">${booking.guest_name}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Contact</span>
+                <span class="detail-value">${booking.phone || 'N/A'}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Total Amount</span>
+                <span class="detail-value" style="color: #27ae60; font-size: 20px;">${totalAmount.toFixed(2)}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Payment Status</span>
+                <span class="detail-value status-paid">${booking.payment_status || 'Paid'}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      
+      container.innerHTML = html;
+    }
+
+    // Payments
+    async function loadPayments() {
+      const container = document.getElementById('payments-container');
+      container.innerHTML = '<div class="loading">Loading payments...</div>';
+
+      try {
+        const response = await fetch(`${API_URL}/payments`);
+        const data = await response.json();
+        
+        if (data.success) {
+          // Filter payments for user's bookings
+          const myBookingsRes = await fetch(`${API_URL}/bookings/user/${user.id}`);
+          const myBookings = await myBookingsRes.json();
+          
+          if (myBookings.success) {
+            const myBookingIds = myBookings.bookings.map(b => b.id);
+            const myPayments = data.payments.filter(p => myBookingIds.includes(p.booking_id));
+            displayPayments(myPayments, container);
+          }
+        } else {
+          container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-credit-card"></i><p>Error loading payments</p></div>';
+        }
+      } catch (error) {
+        console.error('Error loading payments:', error);
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-exclamation-circle"></i><p>Error loading payments</p></div>';
+      }
+    }
+
+    function displayPayments(payments, container) {
+      if (payments.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-credit-card"></i><p>No payment records yet.</p></div>';
+        return;
+      }
+
+      let html = '<table class="data-table"><thead><tr><th>Payment ID</th><th>Booking ID</th><th>Room Type</th><th>Amount</th><th>Method</th><th>Date</th><th>Status</th></tr></thead><tbody>';
+      
+      payments.forEach(payment => {
+        let icon = '';
+        if (payment.payment_method === 'Visa') icon = '<i class="fa-brands fa-cc-visa"></i>';
+        else if (payment.payment_method === 'MasterCard') icon = '<i class="fa-brands fa-cc-mastercard"></i>';
+        else if (payment.payment_method === 'GCash') icon = '<i class="fa-solid fa-mobile-screen-button"></i>';
+        
+        html += `
+          <tr>
+            <td><strong>#P-${payment.id}</strong></td>
+            <td>#${payment.booking_id}</td>
+            <td>${payment.room_type}</td>
+            <td><strong>${parseFloat(payment.amount).toFixed(2)}</strong></td>
+            <td>${icon} ${payment.payment_method}</td>
+            <td>${new Date(payment.payment_date).toLocaleDateString()}</td>
+            <td class="status-${payment.status.toLowerCase()}">${payment.status}</td>
+          </tr>
+        `;
+      });
+      
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+      const modal = document.getElementById('paymentModal');
+      if (event.target === modal) {
+        closePaymentModal();
+      }
+    }
+  </script>
+</body>
+</html>

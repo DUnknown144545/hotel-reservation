@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Receptionist Dashboard - Hotel Reservation</title>
+  <style>
+    /* Basic styles from previous versions */
+    body { font-family: Arial, sans-serif; display: flex; }
+    .sidebar { width: 200px; padding: 20px; background-color: #333; color: white; height: 100vh; position: fixed; }
+    .sidebar a { display: block; padding: 10px; margin-bottom: 5px; text-decoration: none; color: #ccc; }
+    .sidebar a.active { background-color: #555; color: white; }
+    .main-content { margin-left: 220px; padding: 20px; width: calc(100% - 220px); }
+    section { display: none; }
+    section.active { display: block; }
+    .dashboard-cards { display: flex; gap: 20px; margin-bottom: 20px; }
+    .card { border: 1px solid #ccc; padding: 15px; flex: 1; text-align: center; }
+    .card h4 { margin: 0 0 10px 0; }
+    .booking-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    .booking-table th, .booking-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    .booking-table th { background-color: #f2f2f2; }
+    .status-checked-in { color: green; font-weight: bold; }
+    .status-pending { color: orange; font-weight: bold; }
+    .status-checked-out { color: gray; }
+    .status-unpaid { color: red; font-weight: bold; } /* New Payment Status Style */
+    .status-paid { color: green; } /* New Payment Status Style */
+    .action-btn { padding: 5px 10px; cursor: pointer; }
+    #bookingForm { border: 1px solid #ccc; padding: 20px; margin-top: 20px; max-width: 400px; }
+    #bookingForm input, #bookingForm select { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; }
+
+    /* Modal Styles */
+    .modal {
+        display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+        overflow: auto; background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+        background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888;
+        width: 80%; max-width: 500px;
+    }
+    .close-btn { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
+    .close-btn:hover, .close-btn:focus { color: black; text-decoration: none; cursor: pointer; }
+  </style>
+</head>
+
+<body>
+  <div class="sidebar">
+    <div>
+      <h3>Receptionist</h3>
+      <a href="#" class="active" onclick="showSection('dashboard', this)"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+      <a href="#" onclick="showSection('bookings', this)"><i class="fa-solid fa-calendar-check"></i> Bookings</a>
+    </div>
+    <div class="bottom">
+      <p id="recName"></p>
+      <a href="#" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <section id="dashboard" class="active">
+      <h2>Dashboard Overview</h2>
+      <div class="dashboard-cards">
+        <div class="card">
+          <h4><i class="fa-solid fa-right-to-bracket"></i> Check-ins Today</h4>
+          <p>12</p>
+        </div>
+        <div class="card">
+          <h4><i class="fa-solid fa-bed"></i> Available Rooms</h4>
+          <p>8</p>
+        </div>
+        <div class="card">
+          <h4><i class="fa-solid fa-clock"></i> Pending Bookings</h4>
+          <p>5</p>
+        </div>
+        <div class="card">
+          <h4><i class="fa-solid fa-user-check"></i> Current Guests</h4>
+          <p>18</p>
+        </div>
+      </div>
+
+      <div class="calendar">
+        <h3 id="calendarTitle"></h3>
+        <table id="calendarTable">
+          <thead>
+            <tr><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th></tr>
+          </thead>
+          <tbody id="calendarBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="bookings">
+      <h2>Booking Management</h2>
+      <button onclick="openAddBookingForm()">Add New Booking</button>
+      <hr>
+
+      <div id="bookingForm" style="display:none;">
+        <h3 id="bookingFormTitle">Add New Booking</h3>
+        <form id="bookingFormElement" onsubmit="saveBooking(event)">
+          <input type="hidden" id="bookingIdInput">
+          
+          <label>Guest Name:</label>
+          <input type="text" id="guestNameBooking" required>
+          
+          <label>Phone:</label>
+          <input type="text" id="phoneBooking">
+          
+          <label>Room Type:</label>
+          <select id="bookingRoomType" onchange="loadAvailableRoomsBooking()" required>
+            <option value="">Select Type</option>
+            <option value="Single Room">Single Room</option>
+            <option value="Double Room">Double Room</option>
+            <option value="Suite">Suite</option>
+          </select>
+          
+          <label>Room Number:</label>
+          <select id="bookingRoomNumber" required>
+            <option value="">Select Room Number</option>
+          </select>
+          
+          <label>Check-in Date:</label>
+          <input type="date" id="checkinDateBooking" required>
+          
+          <label>Check-out Date:</label>
+          <input type="date" id="checkoutDateBooking" required>
+          
+          <label>Status:</label>
+          <select id="bookingStatus" required>
+            <option value="Pending">Pending</option>
+            <option value="Checked In">Checked In</option>
+            <option value="Checked Out">Checked Out</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+          <br><br>
+          <button type="submit">Save Booking</button>
+          <button type="button" onclick="closeBookingForm()">Cancel</button>
+        </form>
+      </div>
+
+      <h3>All Bookings</h3>
+      <div id="bookingsListContainer">
+        <p>Loading bookings...</p>
+      </div>
+    </section>
+  </div>
+  
+  <div id="paymentModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="document.getElementById('paymentModal').style.display='none'">&times;</span>
+        <h3>Confirm Payment for Booking #<span id="modalBookingId"></span></h3>
+        <form id="paymentForm" onsubmit="processPayment(event)">
+            <input type="hidden" id="paymentBookingId">
+
+            <label>Amount Due/Paid:</label>
+            <input type="number" id="paymentAmount" step="0.01" required>
+            
+            <label>Upload Payment Proof (Image):</label>
+            <input type="file" id="paymentImageUpload" accept="image/*" onchange="previewPaymentImage(event)" required>
+            <br><br>
+            
+            <button type="submit">Confirm Payment</button>
+        </form>
+        <div id="paymentImagePreview" style="margin-top: 15px;"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+    const user = JSON.parse(localStorage.getItem("loggedInUser")) || {};
+    document.getElementById("recName").innerText = user.username || "Receptionist";
+    let paymentImageData = null;
+
+    // --- INITIALIZATION AND NAVIGATION ---
+    
+    if (user.role !== 'Receptionist') {
+      alert('Access denied. Receptionist only.');
+      window.location.href = 'index.html';
+    }
+
+    function showSection(id, el) {
+      document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+      document.querySelectorAll(".sidebar a").forEach(a => a.classList.remove("active"));
+      if (el) el.classList.add("active");
+      
+      if (id === 'bookings') loadBookingsReceptionist();
+    }
+
+    function logout() {
+      localStorage.removeItem("loggedInUser");
+      window.location.href = "index.html";
+    }
+
+    // --- BOOKING MANAGEMENT FUNCTIONS ---
+    
+    // (openAddBookingForm, closeBookingForm, loadAvailableRoomsBooking, saveBooking, editBooking functions remain the same)
+    function openAddBookingForm() {
+        document.getElementById('bookingFormTitle').textContent = 'Add New Booking';
+        document.getElementById('bookingFormElement').reset();
+        document.getElementById('bookingIdInput').value = '';
+        document.getElementById('bookingForm').style.display = 'block';
+    }
+
+    function closeBookingForm() {
+        document.getElementById('bookingForm').style.display = 'none';
+    }
+    
+    async function loadAvailableRoomsBooking() {
+        const roomType = document.getElementById('bookingRoomType').value;
+        const roomSelect = document.getElementById('bookingRoomNumber');
+        
+        roomSelect.innerHTML = '<option value="">Loading...</option>';
+
+        if (!roomType) {
+            roomSelect.innerHTML = '<option value="">Select Room Number</option>';
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/rooms/available/${encodeURIComponent(roomType)}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                let html = '<option value="">Select Room Number</option>';
+                data.rooms.forEach(room => {
+                    html += `<option value="${room.room_number}">${room.room_number}</option>`;
+                });
+                roomSelect.innerHTML = html;
+            } else {
+                roomSelect.innerHTML = '<option value="">Error loading rooms</option>';
+            }
+        } catch (error) {
+            console.error('Error loading rooms:', error);
+            roomSelect.innerHTML = '<option value="">Network Error</option>';
+        }
+    }
+
+    async function saveBooking(event) {
+        event.preventDefault();
+        
+        const bookingId = document.getElementById('bookingIdInput').value;
+        const bookingData = {
+            user_id: user.id, 
+            guest_name: document.getElementById('guestNameBooking').value,
+            phone: document.getElementById('phoneBooking').value,
+            room_type: document.getElementById('bookingRoomType').value,
+            room_number: document.getElementById('bookingRoomNumber').value,
+            checkin_date: document.getElementById('checkinDateBooking').value,
+            checkout_date: document.getElementById('checkoutDateBooking').value,
+            status: document.getElementById('bookingStatus').value
+        };
+
+        try {
+            const url = bookingId ? `${API_URL}/bookings/${bookingId}` : `${API_URL}/bookings`;
+            const method = bookingId ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(bookingData)
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                alert(data.message);
+                closeBookingForm();
+                loadBookingsReceptionist();
+            } else {
+                alert(data.message || 'Error saving booking');
+            }
+        } catch (error) {
+            console.error('Error saving booking:', error);
+            alert('Error saving booking: Check server connection.');
+        }
+    }
+    
+    function editBooking(booking) {
+        document.getElementById('bookingFormTitle').textContent = 'Edit Booking #B-' + booking.id;
+        document.getElementById('bookingIdInput').value = booking.id;
+        document.getElementById('guestNameBooking').value = booking.guest_name;
+        document.getElementById('phoneBooking').value = booking.phone || '';
+        document.getElementById('bookingRoomType').value = booking.room_type;
+        document.getElementById('checkinDateBooking').value = booking.checkin_date.split('T')[0];
+        document.getElementById('checkoutDateBooking').value = booking.checkout_date.split('T')[0];
+        document.getElementById('bookingStatus').value = booking.status;
+        
+        loadAvailableRoomsBooking().then(() => {
+            const roomSelect = document.getElementById('bookingRoomNumber');
+            if (!Array.from(roomSelect.options).some(opt => opt.value === booking.room_number)) {
+                roomSelect.innerHTML += `<option value="${booking.room_number}">${booking.room_number} (Current)</option>`;
+            }
+            roomSelect.value = booking.room_number;
+        });
+        
+        document.getElementById('bookingForm').style.display = 'block';
+    }
+
+    async function loadBookingsReceptionist() {
+        const container = document.getElementById('bookingsListContainer');
+        container.innerHTML = '<p>Loading bookings...</p>';
+        
+        try {
+            const response = await fetch(`${API_URL}/bookings`);
+            const data = await response.json();
+            
+            if (data.success) {
+                displayBookingsReceptionist(data.bookings);
+            } else {
+                container.innerHTML = `<p>Error loading bookings: ${data.message}</p>`;
+            }
+        } catch (error) {
+            console.error('Error loading bookings:', error);
+            container.innerHTML = '<p>Network Error: Could not load bookings.</p>';
+        }
+    }
+    
+    // Function to display the fetched bookings in a table (ADDED PAYMENT STATUS)
+    function displayBookingsReceptionist(bookings) {
+        const container = document.getElementById('bookingsListContainer');
+        if (bookings.length === 0) {
+            container.innerHTML = '<p>No bookings found.</p>';
+            return;
+        }
+
+        let html = `
+            <table class="booking-table">
+            <thead>
+                <tr>
+                    <th>Booking ID</th>
+                    <th>Guest Name</th>
+                    <th>Room No.</th>
+                    <th>Check-in</th>
+                    <th>Check-out</th>
+                    <th>Booking Status</th>
+                    <th>Payment Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        bookings.forEach(booking => {
+            const bookingJson = JSON.stringify(booking).replace(/"/g, '&quot;');
+            const checkinDate = new Date(booking.checkin_date).toLocaleDateString();
+            const checkoutDate = new Date(booking.checkout_date).toLocaleDateString();
+            const statusClass = `status-${booking.status.toLowerCase().replace(' ', '-')}`;
+            const paymentStatusClass = `status-${booking.payment_status ? booking.payment_status.toLowerCase().replace(' ', '-') : 'unpaid'}`;
+            
+            let actions = `<button class="action-btn btn-view" onclick='viewBooking(${booking.id})'>View</button>`;
+            actions += `<button class="action-btn btn-edit" onclick='editBooking(${bookingJson})'>Edit</button>`;
+            
+            // Payment Action
+            if (booking.payment_status !== 'Paid') {
+                actions += `<button class="action-btn" style="background-color: yellow;" onclick="openPaymentModal(${booking.id})">Confirm Payment</button>`;
+            }
+            
+            // Check-in/Check-out Actions
+            if (booking.status === 'Pending' && booking.payment_status === 'Paid') {
+                actions += `<button class="action-btn btn-checkin" style="background-color: lightgreen;" onclick="checkinGuest(${booking.id})">Check-in</button>`;
+            } else if (booking.status === 'Checked In') {
+                actions += `<button class="action-btn btn-checkout" style="background-color: salmon;" onclick="checkoutGuest(${booking.id})">Check-out</button>`;
+            }
+
+            html += `
+                <tr>
+                    <td>#B-${booking.id}</td>
+                    <td>${booking.guest_name}</td>
+                    <td>${booking.room_number}</td>
+                    <td>${checkinDate}</td>
+                    <td>${checkoutDate}</td>
+                    <td class="${statusClass}">${booking.status}</td>
+                    <td class="${paymentStatusClass}">${booking.payment_status || 'Unpaid'}</td>
+                    <td>${actions}</td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+    
+    // --- NEW: CHECK-IN / CHECK-OUT API CALLS ---
+    
+    async function updateCheckStatus(bookingId, action) {
+        try {
+            const response = await fetch(`${API_URL}/check/${bookingId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: action })
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                alert(data.message);
+                loadBookingsReceptionist();
+            } else {
+                alert(data.message || 'Error processing check status.');
+            }
+        } catch (error) {
+            console.error('Check status update failed:', error);
+            alert('Network Error: Failed to connect to server for check status update.');
+        }
+    }
+    
+    function checkinGuest(bookingId) {
+      updateCheckStatus(bookingId, 'checkin');
+    }
+
+    function checkoutGuest(bookingId) {
+      if (confirm(`Process check-out for booking #B-${bookingId}? This will free up the room.`)) {
+        updateCheckStatus(bookingId, 'checkout');
+      }
+    }
+    
+    // --- NEW: PAYMENT FUNCTIONS ---
+
+    function openPaymentModal(bookingId) {
+        document.getElementById('modalBookingId').textContent = bookingId;
+        document.getElementById('paymentBookingId').value = bookingId;
+        document.getElementById('paymentForm').reset();
+        document.getElementById('paymentImagePreview').innerHTML = '';
+        paymentImageData = null;
+        document.getElementById('paymentModal').style.display = 'block';
+    }
+
+    function previewPaymentImage(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                paymentImageData = e.target.result; // Base64 string
+                document.getElementById('paymentImagePreview').innerHTML = 
+                    `<p>Preview:</p><img src="${e.target.result}" style="max-width: 100%; height: auto;">`;
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    async function processPayment(event) {
+        event.preventDefault();
+        
+        const bookingId = document.getElementById('paymentBookingId').value;
+        const amount = document.getElementById('paymentAmount').value;
+        
+        if (!paymentImageData) {
+            alert("Please upload a proof of payment image.");
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/payments/confirm/${bookingId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    image_data: paymentImageData,
+                    amount: parseFloat(amount)
+                })
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                alert(data.message);
+                document.getElementById('paymentModal').style.display = 'none';
+                loadBookingsReceptionist();
+            } else {
+                alert(data.message || 'Error confirming payment.');
+            }
+        } catch (error) {
+            console.error('Payment confirmation failed:', error);
+            alert('Network Error: Failed to confirm payment.');
+        }
+    }
+    
+    function viewBooking(bookingId) {
+      alert(`Viewing details for booking #B-${bookingId}.`);
+    }
+
+    // --- OTHER DASHBOARD FUNCTIONS ---
+    
+    function generateCalendar() {
+        const today = new Date();
+        const month = today.getMonth();
+        const year = today.getFullYear();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const startDay = firstDay.getDay();
+        const totalDays = lastDay.getDate();
+        const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+        
+        document.getElementById("calendarTitle").innerText = `${monthNames[month]} ${year}`;
+        
+        const tbody = document.getElementById("calendarBody");
+        tbody.innerHTML = "";
+        
+        let date = 1;
+        for (let i = 0; i < 6; i++) {
+            const row = document.createElement("tr");
+            for (let j = 0; j < 7; j++) {
+                const cell = document.createElement("td");
+                if (i === 0 && j < startDay) {
+                    cell.textContent = "";
+                } else if (date > totalDays) {
+                    cell.textContent = "";
+                } else {
+                    cell.textContent = date;
+                    if (date === today.getDate()) {
+                        cell.classList.add("today");
+                    }
+                    date++;
+                }
+                row.appendChild(cell);
+            }
+            tbody.appendChild(row);
+        }
+    }
+
+    generateCalendar();
+    
+    // Ensure the Dashboard is shown first
+    showSection('dashboard', document.querySelector('.sidebar a.active')); 
+  </script>
+</body>
+</html>

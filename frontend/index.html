@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Hotel Reservation - Login</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Enter Username">
+    <input type="password" id="password" placeholder="Enter Password">
+    <select id="role">
+      <option value="Admin">Admin</option>
+      <option value="Receptionist">Receptionist</option>
+      <option value="Guest">Guest</option>
+    </select>
+    <button onclick="login()">Login</button>
+    <p style="text-align:center;">Don't have an account? <a href="register.html">Register</a></p>
+  </div>
+
+  <script>
+    async function login() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const role = document.getElementById("role").value;
+
+      if (!username || !password) {
+        alert("Please fill in all fields");
+        return;
+      }
+
+      try {
+        // Send login request to backend
+        const response = await fetch('http://localhost:3000/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username, password, role })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          // Store user info in localStorage
+          localStorage.setItem("loggedInUser", JSON.stringify(data.user));
+
+          // Redirect based on role
+          if (data.user.role === "Admin") {
+            window.location.href = "admin.html";
+          } else if (data.user.role === "Receptionist") {
+            window.location.href = "receptionist.html";
+          } else {
+            window.location.href = "guest.html";
+          }
+        } else {
+          alert(data.message);
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        alert("Connection error. Make sure the server is running.");
+      }
+    }
+
+    // Allow Enter key to submit
+    document.addEventListener('keypress', function(event) {
+      if (event.key === 'Enter') {
+        login();
+      }
+    });
+  </script>
+</body>
+</html>
