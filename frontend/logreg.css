@@ -1,0 +1,86 @@
+ @font-face {
+     font-family: 'NunitoBold';
+     src: url('Nunito-bold.ttf') format('truetype');
+     font-weight: bold;
+     font-style: normal;
+ }
+
+ * {
+     font-family: 'NunitoBold', sans-serif;
+ }
+
+ body {
+     background: linear-gradient(120deg, #ffffff, #88ff7d, #ffd175);
+     background-size: 400% 400%;
+     animation: move 24s ease infinite;
+     display: flex;
+     justify-content: center;
+     align-items: center;
+     height: 100vh;
+ }
+
+ @keyframes move {
+     0% {
+         background-position: 0% 50%;
+     }
+
+     50% {
+         background-position: 100% 50%;
+     }
+
+     100% {
+         background-position: 0% 50%;
+     }
+ }
+
+ .container {
+     width: 300px;
+     background: white;
+     padding: 20px 25px;
+     border-radius: 6px;
+     box-shadow: 0 0 3px rgba(0, 0, 0, 0.15);
+ }
+
+ h2 {
+     text-align: center;
+     margin-bottom: 20px;
+     font-size: 18px;
+ }
+
+ input,
+ select {
+     width: 100%;
+     padding: 12px;
+     margin: 10px 0;
+     border: 1px solid #bbb;
+     border-radius: 5px;
+     font-size: 14px;
+     box-sizing: border-box;
+ }
+
+ button {
+     width: 100%;
+     background: #1e1b1b;
+     color: white;
+     padding: 12px;
+     margin-top: 10px;
+     border: none;
+     border-radius: 5px;
+     cursor: pointer;
+     font-size: 15px;
+ }
+
+ button:hover {
+     opacity: 0.9;
+ }
+
+ p {
+     margin-top: 15px;
+     text-align: center;
+     font-size: 14px;
+ }
+
+ a {
+     color: black;
+     text-decoration: underline;
+ }
