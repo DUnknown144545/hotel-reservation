@@ -1,0 +1,910 @@
+
+    const API_URL = 'http://localhost:3000/api';
+    const user = JSON.parse(localStorage.getItem("loggedInUser")) || {};
+    document.getElementById("recName").innerText = user.username || "Receptionist";
+    let manualPaymentImage = null;
+    let currentBookingId = null;
+
+    if (user.role !== 'Receptionist') {
+      alert('Access denied. Receptionist only.');
+      window.location.href = 'index.html';
+    }
+
+    // Helper apiFetch: adds x-user-id header and handles JSON/text safely
+    async function apiFetch(url, options = {}) {
+      options.headers = options.headers || {};
+      // include user id header for receptionist-protected endpoints
+      if (user && user.id) options.headers['x-user-id'] = user.id;
+      // default JSON content-type for bodies
+      if (options.body && !options.headers['Content-Type']) {
+        options.headers['Content-Type'] = 'application/json';
+      }
+      const res = await fetch(url, options);
+      const ct = res.headers.get('content-type') || '';
+      if (!res.ok) {
+        // try JSON error body
+        try {
+          const json = ct.includes('application/json') ? await res.json() : null;
+          throw new Error(json && json.message ? json.message : `HTTP ${res.status}`);
+        } catch (err) {
+          throw new Error(`HTTP ${res.status} - ${await res.text().catch(()=>'<no body>')}`);
+        }
+      }
+      // parse JSON if content-type indicates
+      if (ct.includes('application/json')) return res.json();
+      // otherwise return text
+      return res.text();
+    }
+    async function loadDashboard() {
+        try {
+          // use apiFetch so header x-user-id is included if needed (not required for GET)
+          const res = await apiFetch(`${API_URL}/dashboard/summary`, { method: 'GET' });
+          if (!res || !res.success) {
+            console.warn('Dashboard API returned no success:', res);
+            return;
+          }
+
+          const s = res.summary || {};
+
+          document.getElementById('checkinsTodayVal').textContent = s.checkins_today ?? 0;
+          document.getElementById('availableRoomsVal').textContent = s.available_rooms ?? 0;
+          document.getElementById('pendingBookingsVal').textContent = s.pending_bookings ?? 0;
+          document.getElementById('currentGuestsVal').textContent = s.current_guests ?? 0;
+        } catch (err) {
+          console.error('loadDashboard error:', err);
+        }
+      }
+
+      // Call on initial page load
+      loadDashboard();
+
+      // Also refresh when the dashboard section is shown
+      function showSection(id, el) {
+        document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+        document.getElementById(id).classList.add("active");
+        document.querySelectorAll(".sidebar a").forEach(a => a.classList.remove("active"));
+        if (el) el.classList.add("active");
+
+        if (id === 'dashboard') {
+          loadDashboard();
+        }
+        if (id === 'view-bookings') loadAllBookings();
+        if (id === 'online-bookings') loadOnlineBookings();
+        if (id === 'Payments') loadAllPayments();
+      }
+
+    function showSection(id, el) {
+      document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+      document.querySelectorAll(".sidebar a").forEach(a => a.classList.remove("active"));
+      if (el) el.classList.add("active");
+      
+      if (id === 'view-bookings') loadAllBookings();
+      if (id === 'online-bookings') loadOnlineBookings();
+      if (id === 'Payments') loadAllPayments();
+    }
+
+    function showTab(tabName) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      event.target.classList.add('active');
+      document.getElementById(tabName).classList.add('active');
+      
+      // Load data based on tab
+      if (tabName === 'pending') loadPendingBookings();
+      if (tabName === 'accepted') loadAcceptedBookings();
+      if (tabName === 'payment-pending') loadPaymentPendingBookings();
+    }
+
+    function showPaymentTab(tabName) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      event.target.classList.add('active');
+      document.getElementById(tabName).classList.add('active');
+      
+      // Load data based on tab
+      if (tabName === 'all-payments') loadAllPayments();
+      if (tabName === 'pending-verification') loadPendingVerification();
+      if (tabName === 'verified-payments') loadVerifiedPayments();
+    }
+
+    function logout() {
+      localStorage.removeItem("loggedInUser");
+      window.location.href = "index.html";
+    }
+
+    async function loadAllBookings() {
+      const container = document.getElementById('viewBookingsContainer');
+      container.innerHTML = '<p>Loading...</p>';
+      
+      try {
+        const response = await fetch(`${API_URL}/bookings`);
+        const data = await response.json();
+        
+        if (data.success) {
+          displayBookingsTable(data.bookings, container);
+        } else {
+          container.innerHTML = '<p>No bookings found</p>';
+        }
+      } catch (error) {
+        console.error('loadAllBookings error:', error);
+        container.innerHTML = '<p>Error loading bookings</p>';
+      }
+    }
+
+    // ----------------- displayBookingsTable includes Actions dropdown -----------------
+    function displayBookingsTable(bookings, container) {
+      if (!bookings.length) {
+        container.innerHTML = '<p>No bookings found</p>';
+        return;
+      }
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th>Booking ID</th>
+              <th>Guest Name</th>
+              <th>Room</th>
+              <th>Check-in</th>
+              <th>Check-out</th>
+              <th>Status</th>
+              <th>Payment</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      bookings.forEach(booking => {
+        // Fix missing variable
+        const statusClass = (booking.status || 'pending').toLowerCase().replace(/\s+/g, '-');
+        const paymentStatusClass = (booking.payment_status || 'Unpaid').toLowerCase().replace(/\s+/g, '-');
+
+        // Normalize fields
+        const normalizedStatus = (booking.status || '').toLowerCase();
+        const receptionistStatus = (booking.receptionist_status || '').toLowerCase();
+        const paymentStatus = (booking.payment_status || '').toLowerCase();
+
+        // Frontend conditions
+        const canCheckIn =
+            receptionistStatus === 'accepted' &&
+            normalizedStatus === 'pending' &&
+            paymentStatus === 'paid';
+
+        const canCheckOut =
+            (normalizedStatus === 'checked in' || normalizedStatus === 'checked-in') &&
+            paymentStatus === 'paid';
+
+        const canCancel =
+            ['pending', 'accepted'].includes(normalizedStatus);
+
+        html += `
+          <tr id="booking-row-${booking.id}">
+            <td>#B-${booking.id}</td>
+            <td>${booking.guest_name}</td>
+            <td>${booking.room_number || 'N/A'}</td>
+            <td>${new Date(booking.checkin_date).toLocaleDateString()}</td>
+            <td>${new Date(booking.checkout_date).toLocaleDateString()}</td>
+            <td>
+                <span class="status-badge status-${statusClass}">
+                    ${booking.status}
+                </span>
+            </td>
+            <td>
+                <span class="status-badge status-${paymentStatusClass}">
+                    ${booking.payment_status || 'Unpaid'}
+                </span>
+            </td>
+
+            <td>
+              <select onchange="handleBookingAction(${booking.id}, this.value)">
+                <option value="">Select action</option>
+                <option value="checkin" ${!canCheckIn ? 'disabled' : ''}>Check-in</option>
+                <option value="checkout" ${!canCheckOut ? 'disabled' : ''}>Check-out</option>
+                <option value="cancel" ${!canCancel ? 'disabled' : ''}>Cancel Booking</option>
+                <option value="view">View</option>
+              </select>
+            </td>
+          </tr>
+        `;
+        });
+
+      
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    // Robust handleBookingAction using apiFetch
+    async function handleBookingAction(bookingId, action) {
+      if (!action) return;
+
+      const selectEl = document.querySelector(`#booking-row-${bookingId} select`);
+      if (!selectEl) return;
+
+      if (action === 'view') {
+        alert('Open booking details modal (implement as needed).');
+        selectEl.value = '';
+        return;
+      }
+
+      const actionLabels = { checkin: 'Check-in', checkout: 'Check-out', cancel: 'Cancel booking' };
+      const ok = confirm(`Confirm ${actionLabels[action] || action} for booking #B-${bookingId}?`);
+      if (!ok) {
+        selectEl.value = '';
+        return;
+      }
+
+      try {
+        const data = await apiFetch(`${API_URL}/bookings/${bookingId}/receptionist-action`, {
+          method: 'PUT',
+          body: JSON.stringify({ action })
+        });
+
+        if (data && data.success) {
+          alert(`Action "${action}" completed successfully.`);
+          await loadAllBookings();
+        } else {
+          console.warn('Response:', data);
+          alert(data && data.message ? data.message : 'Action failed (see console).');
+          selectEl.value = '';
+        }
+      } catch (err) {
+        console.error('Error performing action:', err);
+        alert('Error performing action (see console).');
+        selectEl.value = '';
+      }
+    }
+    // ----------------- END additions for actions dropdown -----------------
+
+    // loadManualRooms (unchanged behavior)
+    async function loadManualRooms() {
+      const roomType = document.getElementById('manualRoomType').value;
+      const checkin = document.getElementById('manualCheckin').value;
+      const checkout = document.getElementById('manualCheckout').value;
+      const select = document.getElementById('manualRoomNumber');
+      
+      select.innerHTML = '<option value="">Select Room Number</option>';
+      if (!roomType || !checkin || !checkout) return;
+
+      try {
+        const params = new URLSearchParams({ checkin, checkout });
+        const response = await fetch(`${API_URL}/rooms/available/${encodeURIComponent(roomType)}?${params.toString()}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          let html = '<option value="">Select Room Number</option>';
+          if (data.rooms.length === 0) {
+            html += `<option value="">No rooms available for selected dates</option>`;
+          } else {
+            data.rooms.forEach(room => {
+              html += `<option value="${room.room_number}">${room.room_number}</option>`;
+            });
+          }
+          select.innerHTML = html;
+        }
+      } catch (error) {
+        console.error('Error loading rooms:', error);
+      }
+    }
+    document.getElementById('manualCheckin').addEventListener('change', loadManualRooms);
+    document.getElementById('manualCheckout').addEventListener('change', loadManualRooms);
+
+    function previewManualImage(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          manualPaymentImage = e.target.result;
+          document.getElementById('manualImagePreview').innerHTML = 
+            `<img src="${e.target.result}" alt="Payment Proof">`;
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    // Use apiFetch for manual booking (so x-user-id header is sent)
+    document.getElementById('manualBookingForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        if (!manualPaymentImage) {
+          alert('Please upload payment proof');
+          return;
+        } 
+
+        const bookingData = {
+          user_id: user.id,
+          guest_name: document.getElementById('manualGuestName').value,
+          phone: document.getElementById('manualPhone').value,
+          room_type: document.getElementById('manualRoomType').value,
+          room_number: document.getElementById('manualRoomNumber').value,
+          checkin_date: document.getElementById('manualCheckin').value,
+          checkout_date: document.getElementById('manualCheckout').value,
+          payment_image: manualPaymentImage
+        };
+
+        try {
+          const data = await apiFetch(`${API_URL}/bookings/manual`, {
+            method: 'POST',
+            body: JSON.stringify(bookingData)
+          });
+
+          if (data && data.success) {
+            alert('Booking created successfully!');
+            this.reset();
+            document.getElementById('manualImagePreview').innerHTML = '';
+            manualPaymentImage = null;
+            loadAllBookings();
+          } else {
+            alert(data.message || 'Could not create booking');
+          }
+        } catch (error) {
+          console.error('Create manual booking error', error);
+          alert('Error creating booking (check console)');
+        }
+      });
+
+    async function loadOnlineBookings() {
+      loadPendingBookings();
+    }
+
+    async function loadPendingBookings() {
+      const container = document.getElementById('pending');
+      container.innerHTML = '<p>Loading...</p>';
+      
+      try {
+        const response = await fetch(`${API_URL}/bookings/online/pending`);
+        const data = await response.json();
+        
+        if (data.success) {
+          displayPendingBookings(data.bookings, container);
+        }
+      } catch (error) {
+        container.innerHTML = '<p>Error loading bookings</p>';
+      }
+    }
+
+    function displayPendingBookings(bookings, container) {
+      if (!bookings.length) {
+        container.innerHTML = '<p>No pending bookings</p>';
+        return;
+      }
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th>Booking ID</th>
+              <th>Guest</th>
+              <th>Username</th>
+              <th>Room Type</th>
+              <th>Check-in</th>
+              <th>Check-out</th>
+              <th>Phone</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      bookings.forEach(booking => {
+        const checkin = booking.checkin_date;
+        const checkout = booking.checkout_date;
+        html += `
+          <tr>
+            <td>#B-${booking.id}</td>
+            <td>${booking.guest_name}</td>
+            <td>${booking.username}</td>
+            <td>${booking.room_type}</td>
+            <td>${new Date(checkin).toLocaleDateString()}</td>
+            <td>${new Date(checkout).toLocaleDateString()}</td>
+            <td>${booking.phone}</td>
+            <td>
+              <button class="action-btn btn-view" onclick="acceptBookingRequest(${booking.id}, '${booking.room_type}', '${checkin}', '${checkout}')">Accept</button>
+              <button class="action-btn btn-delete" onclick="declineBooking(${booking.id})">Decline</button>
+            </td>
+          </tr>
+        `;
+      });
+      
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    async function loadAcceptedBookings() {
+      const container = document.getElementById('accepted');
+      container.innerHTML = '<p>Loading...</p>';
+      
+      try {
+        const response = await fetch(`${API_URL}/bookings/online/accepted`);
+        const data = await response.json();
+        
+        if (data.success) {
+          displayAcceptedBookings(data.bookings, container);
+        }
+      } catch (error) {
+        container.innerHTML = '<p>Error loading bookings</p>';
+      }
+    }
+
+    function displayAcceptedBookings(bookings, container) {
+      if (!bookings.length) {
+        container.innerHTML = '<p>No accepted bookings</p>';
+        return;
+      }
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th>Booking ID</th>
+              <th>Guest</th>
+              <th>Room</th>
+              <th>Check-in</th>
+              <th>Check-out</th>
+              <th>GCash Number</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      bookings.forEach(booking => {
+        html += `
+          <tr>
+            <td>#B-${booking.id}</td>
+            <td>${booking.guest_name}</td>
+            <td>${booking.room_number || 'Not assigned'}</td>
+            <td>${new Date(booking.checkin_date).toLocaleDateString()}</td>
+            <td>${new Date(booking.checkout_date).toLocaleDateString()}</td>
+            <td>${booking.gcash_number || 'N/A'}</td>
+            <td><span class="status-badge status-${booking.payment_status || 'unpaid'}">${booking.payment_status || 'Awaiting Payment'}</span></td>
+          </tr>
+        `;
+      });
+      
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    async function loadPaymentPendingBookings() {
+      const container = document.getElementById('payment-pending');
+      container.innerHTML = '<p>Loading...</p>';
+      
+      try {
+        const response = await fetch(`${API_URL}/bookings/payment-uploads`);
+        const data = await response.json();
+        
+        if (data.success) {
+          displayPaymentPendingBookings(data.bookings, container);
+        }
+      } catch (error) {
+        container.innerHTML = '<p>Error loading bookings</p>';
+      }
+    }
+
+    function displayPaymentPendingBookings(bookings, container) {
+      if (!bookings.length) {
+        container.innerHTML = '<p>No payment uploads pending verification</p>';
+        return;
+      }
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th>Booking ID</th>
+              <th>Guest</th>
+              <th>Room</th>
+              <th>Amount</th>
+              <th>Upload Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      bookings.forEach(booking => {
+        html += `
+          <tr>
+            <td>#B-${booking.id}</td>
+            <td>${booking.guest_name}</td>
+            <td>${booking.room_number}</td>
+            <td>₱${booking.expected_amount || 'TBD'}</td>
+            <td>${booking.payment_upload_date ? new Date(booking.payment_upload_date).toLocaleDateString() : 'N/A'}</td>
+            <td>
+              <button class="action-btn btn-view" onclick="viewPaymentProof(${booking.id}, ${JSON.stringify(booking).replace(/"/g, '&quot;')})">
+                View & Verify
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+      
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    // Payment Management Functions
+    async function loadAllPayments() {
+      const container = document.getElementById('all-payments');
+      container.innerHTML = '<p>Loading...</p>';
+      
+      try {
+        const response = await fetch(`${API_URL}/payments`);
+        const data = await response.json();
+        
+        if (data.success) {
+          displayPaymentsTable(data.payments, container);
+        }
+      } catch (error) {
+        container.innerHTML = '<p>Error loading payments</p>';
+      }
+    }
+
+    async function loadPendingVerification() {
+      const container = document.getElementById('pending-verification');
+      container.innerHTML = '<p>Loading...</p>';
+      
+      try {
+        const response = await fetch(`${API_URL}/payments/pending-verification`);
+        const data = await response.json();
+        
+        if (data.success) {
+          displayPendingPayments(data.payments, container);
+        }
+      } catch (error) {
+        container.innerHTML = '<p>Error loading payments</p>';
+      }
+    }
+
+    async function loadVerifiedPayments() {
+      const container = document.getElementById('verified-payments');
+      container.innerHTML = '<p>Loading...</p>';
+      
+      try {
+        const response = await fetch(`${API_URL}/payments/verified`);
+        const data = await response.json();
+        
+        if (data.success) {
+          displayPaymentsTable(data.payments, container);
+        }
+      } catch (error) {
+        container.innerHTML = '<p>Error loading payments</p>';
+      }
+    }
+
+    function displayPaymentsTable(payments, container) {
+      if (!payments.length) {
+        container.innerHTML = '<p>No payments found</p>';
+        return;
+      }
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th>Payment ID</th>
+              <th>Booking ID</th>
+              <th>Room Type</th>
+              <th>Amount</th>
+              <th>Method</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      payments.forEach(payment => {
+        html += `
+          <tr>
+            <td>#P-${payment.id}</td>
+            <td>#B-${payment.booking_id}</td>
+            <td>${payment.room_type}</td>
+            <td>₱${parseFloat(payment.amount).toFixed(2)}</td>
+            <td>${payment.payment_method}</td>
+            <td><span class="status-badge status-${payment.status.toLowerCase()}">${payment.status}</span></td>
+            <td>${new Date(payment.payment_date).toLocaleDateString()}</td>
+            <td>
+              ${payment.image_data ? `<button class="action-btn btn-view" onclick="viewPaymentImage('${payment.image_data}')">View Proof</button>` : 'No image'}
+            </td>
+          </tr>
+        `;
+      });
+      
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function displayPendingPayments(payments, container) {
+      if (!payments.length) {
+        container.innerHTML = '<p>No payments pending verification</p>';
+        return;
+      }
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th>Booking ID</th>
+              <th>Guest Name</th>
+              <th>Room</th>
+              <th>Expected Amount</th>
+              <th>Upload Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      payments.forEach(payment => {
+        html += `
+          <tr>
+            <td>#B-${payment.booking_id}</td>
+            <td>${payment.guest_name}</td>
+            <td>${payment.room_number}</td>
+            <td>₱${payment.expected_amount || 'TBD'}</td>
+            <td>${new Date(payment.upload_date).toLocaleDateString()}</td>
+            <td>
+              <button class="action-btn btn-view" onclick="verifyPaymentProof(${payment.booking_id}, '${payment.payment_image}', ${payment.expected_amount})">
+                Verify Payment
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+      
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function viewPaymentImage(imageData) {
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.display = 'block';
+      modal.innerHTML = `
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Payment Proof</h3>
+            <span class="close-btn" onclick="this.closest('.modal').remove()">&times;</span>
+          </div>
+          <div class="image-preview">
+            <img src="${imageData}" alt="Payment Proof" style="width: 100%; max-height: 500px; object-fit: contain;">
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+
+    function viewPaymentProof(bookingId, booking) {
+      currentBookingId = bookingId;
+      
+      document.getElementById('modalBookingId').textContent = bookingId;
+      document.getElementById('modalGuestName').textContent = booking.guest_name;
+      document.getElementById('modalRoomInfo').textContent = `${booking.room_type} - ${booking.room_number}`;
+      document.getElementById('modalDates').textContent = 
+        `${new Date(booking.checkin_date).toLocaleDateString()} - ${new Date(booking.checkout_date).toLocaleDateString()}`;
+      
+      if (booking.payment_image) {
+        document.getElementById('paymentImageDisplay').innerHTML = 
+          `<img src="${booking.payment_image}" alt="Payment Proof" style="width: 100%;">`;
+      }
+      
+      document.getElementById('paymentModal').style.display = 'block';
+    }
+
+    function verifyPaymentProof(bookingId, imageData, expectedAmount) {
+      currentBookingId = bookingId;
+      
+      document.getElementById('modalBookingId').textContent = bookingId;
+      document.getElementById('verifyAmount').value = expectedAmount || '';
+      
+      if (imageData) {
+        document.getElementById('paymentImageDisplay').innerHTML = 
+          `<img src="${imageData}" alt="Payment Proof" style="width: 100%; max-height: 400px; object-fit: contain;">`;
+      }
+      
+      document.getElementById('paymentModal').style.display = 'block';
+    }
+
+    // use apiFetch for approve/reject so user header is sent
+    async function approvePayment() {
+      const amount = document.getElementById('verifyAmount').value;
+      
+      if (!amount) {
+        alert('Please enter the amount');
+        return;
+      }
+
+      try {
+        const data = await apiFetch(`${API_URL}/bookings/${currentBookingId}/verify-payment`, {
+          method: 'PUT',
+          body: JSON.stringify({ approved: true, amount: parseFloat(amount) })
+        });
+
+        if (data.success) {
+          alert('Payment approved successfully!');
+          closePaymentModal();
+          loadPaymentPendingBookings();
+          loadAllPayments();
+        } else {
+          alert(data.message || 'Failed to approve payment');
+        }
+      } catch (err) {
+        console.error('approvePayment error:', err);
+        alert('Error approving payment (check console)');
+      }
+    }
+
+    async function rejectPayment() {
+      if (!confirm('Are you sure you want to reject this payment? The guest will need to upload again.')) {
+        return;
+      }
+
+      try {
+        const data = await apiFetch(`${API_URL}/bookings/${currentBookingId}/verify-payment`, {
+          method: 'PUT',
+          body: JSON.stringify({ approved: false })
+        });
+
+        if (data.success) {
+          alert('Payment rejected. Guest has been notified.');
+          closePaymentModal();
+          loadPaymentPendingBookings();
+        } else {
+          alert(data.message || 'Failed to reject payment');
+        }
+      } catch (err) {
+        console.error('rejectPayment error:', err);
+        alert('Error rejecting payment (check console)');
+      }
+    }
+
+    // ----------------- acceptBookingRequest (unchanged) -----------------
+    function acceptBookingRequest(bookingId, roomType, checkin, checkout) {
+      currentBookingId = bookingId;
+      document.getElementById('acceptModalBookingId').textContent = bookingId;
+      loadRoomsForAccept(roomType, checkin, checkout);
+      document.getElementById('acceptBookingModal').style.display = 'block';
+    }
+
+    async function loadRoomsForAccept(roomType, checkin, checkout) {
+      try {
+        const select = document.getElementById('acceptRoomNumber');
+        select.innerHTML = '<option value="">Select Room Number</option>';
+
+        if (!roomType || !checkin || !checkout) {
+          select.innerHTML = '<option value="">Select check-in/check-out first</option>';
+          return;
+        }
+
+        const params = new URLSearchParams({ checkin, checkout });
+        const response = await fetch(`${API_URL}/rooms/available/${encodeURIComponent(roomType)}?${params.toString()}`);
+        const data = await response.json();
+
+        if (data.success) {
+          let html = '<option value="">Select Room Number</option>';
+          if (data.rooms.length === 0) {
+            html += '<option value="">No rooms available for selected dates</option>';
+          } else {
+            data.rooms.forEach(room => {
+              html += `<option value="${room.room_number}">${room.room_number}</option>`;
+            });
+          }
+          select.innerHTML = html;
+        }
+      } catch (error) {
+        console.error('Error loading rooms for accept:', error);
+      }
+    }
+
+    // use apiFetch for confirmAcceptBooking (sends x-user-id)
+    async function confirmAcceptBooking() {
+      const roomNumber = document.getElementById('acceptRoomNumber').value;
+      const gcashNumber = document.getElementById('acceptGcashNumber').value;
+      
+      if (!roomNumber || !gcashNumber) {
+        alert('Please fill in all fields');
+        return;
+      }
+
+      try {
+        const data = await apiFetch(`${API_URL}/bookings/online/${currentBookingId}/receptionist-action`, {
+          method: 'PUT',
+          body: JSON.stringify({ 
+            action: 'accept', 
+            room_number: roomNumber,
+            gcash_number: gcashNumber
+          })
+        });
+
+        if (data.success) {
+          alert('Booking accepted! Guest has been notified with payment details.');
+          closeAcceptModal();
+          loadPendingBookings();
+          loadAcceptedBookings();
+        } else {
+          alert(data.message || 'Failed to accept booking');
+        }
+      } catch (err) {
+        console.error('confirmAcceptBooking error:', err);
+        alert('Error accepting booking (check console)');
+      }
+    }
+
+    async function declineBooking(bookingId) {
+      if (!confirm('Are you sure you want to decline this booking?')) {
+        return;
+      }
+
+      try {
+        const data = await apiFetch(`${API_URL}/bookings/online/${bookingId}/receptionist-action`, {
+          method: 'PUT',
+          body: JSON.stringify({ action: 'decline' })
+        });
+
+        if (data.success) {
+          alert('Booking declined');
+          loadPendingBookings();
+        } else {
+          alert(data.message || 'Failed to decline booking');
+        }
+      } catch (err) {
+        console.error('declineBooking error:', err);
+        alert('Error declining booking (check console)');
+      }
+    }
+
+    function closeAcceptModal() {
+      document.getElementById('acceptBookingModal').style.display = 'none';
+      document.getElementById('acceptRoomNumber').innerHTML = '<option value="">Select Room Number</option>';
+      document.getElementById('acceptGcashNumber').value = '';
+    }
+
+    function closePaymentModal() {
+      document.getElementById('paymentModal').style.display = 'none';
+      currentBookingId = null;
+    }
+
+    function generateCalendar() {
+      const today = new Date();
+      const month = today.getMonth();
+      const year = today.getFullYear();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const startDay = firstDay.getDay();
+      const totalDays = lastDay.getDate();
+      const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      
+      document.getElementById("calendarTitle").innerText = `${monthNames[month]} ${year}`;
+      
+      const tbody = document.getElementById("calendarBody");
+      tbody.innerHTML = "";
+      
+      let date = 1;
+      for (let i = 0; i < 6; i++) {
+        const row = document.createElement("tr");
+        for (let j = 0; j < 7; j++) {
+          const cell = document.createElement("td");
+          if (i === 0 && j < startDay) {
+            cell.textContent = "";
+          } else if (date > totalDays) {
+            cell.textContent = "";
+          } else {
+            cell.textContent = date;
+            if (date === today.getDate()) {
+              cell.classList.add("today");
+            }
+            date++;
+          }
+          row.appendChild(cell);
+        }
+        tbody.appendChild(row);
+      }
+    }
+
+    generateCalendar();

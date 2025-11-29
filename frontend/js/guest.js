@@ -1,0 +1,640 @@
+
+    // ============================================
+    // GUEST DASHBOARD JS (updated)
+    // ============================================
+    const API_URL = 'http://localhost:3000/api';
+    let currentUser = null;
+    let allRooms = [];
+    let currentBookings = [];
+    let selectedPaymentMethod = null;
+    let currentBookingForPayment = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Load user - guard if not logged in
+      const userStr = localStorage.getItem('user') || localStorage.getItem('loggedInUser');
+      if (!userStr) {
+        // if you want to redirect non-logged guests to login page:
+        // window.location.href = '/index.html';
+        document.getElementById('guestName').textContent = `Welcome, Guest`;
+      } else {
+        try {
+          currentUser = JSON.parse(userStr);
+          document.getElementById('guestName').textContent = `Welcome, ${currentUser.username || 'Guest'}`;
+          if (currentUser.username) document.getElementById('booking-guest-name').value = currentUser.username;
+        } catch (e) {
+          console.warn('Could not parse user from storage', e);
+        }
+      }
+
+      // load initial data (guard currentUser when endpoints require it)
+      loadRooms();
+      if (currentUser && currentUser.id) {
+        loadDashboardData();
+        loadMyBookings();
+        loadCheckoutHistory();
+        loadPayments();
+      } else {
+        // still show rooms and allow browsing even without login
+        loadRecentActivity([]);
+      }
+
+      // set min dates
+      const today = new Date().toISOString().split('T')[0];
+      const inEl = document.getElementById('booking-checkin');
+      const outEl = document.getElementById('booking-checkout');
+      if (inEl) inEl.min = today;
+      if (outEl) outEl.min = today;
+    });
+
+    // NAV
+    function showSection(sectionId, element) {
+      document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+      const el = document.getElementById(sectionId);
+      if (el) el.classList.add('active');
+
+      document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+      if (element) element.classList.add('active');
+    }
+
+    function logout() {
+      localStorage.removeItem('user');
+      localStorage.removeItem('loggedInUser');
+      window.location.href = '/index.html';
+    }
+
+    // DASHBOARD DATA
+    async function loadDashboardData() {
+      if (!currentUser || !currentUser.id) return;
+      try {
+        const res = await fetch(`${API_URL}/bookings/user/${currentUser.id}`);
+        const data = await res.json();
+        if (data.success) {
+          const bookings = data.bookings || [];
+          document.getElementById('stat-total-bookings').textContent = bookings.length;
+          document.getElementById('stat-active-stays').textContent = bookings.filter(b => b.status === 'Checked In').length;
+          document.getElementById('stat-pending').textContent = bookings.filter(b => b.status === 'Pending').length;
+          document.getElementById('stat-completed').textContent = bookings.filter(b => b.status === 'Checked Out').length;
+
+          // sort bookings desc by checkin date then pass to recent activity
+          const sorted = bookings.slice().sort((a,b) => new Date(b.checkin_date) - new Date(a.checkin_date));
+          loadRecentActivity(sorted);
+        }
+      } catch (err) {
+        console.error('loadDashboardData error', err);
+      }
+    }
+
+    function loadRecentActivity(bookings) {
+      const container = document.getElementById('recent-activity');
+      const recent = (bookings || []).slice(0,5);
+      if (recent.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-clock"></i><p>No recent activity.</p></div>';
+        return;
+      }
+      let html = '';
+      recent.forEach(b => {
+        const statusColor = getStatusColor(b.status);
+        html += `<div class="card" style="padding:16px;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <h4 style="margin:0 0 6px 0;">Room ${b.room_number || 'TBD'} — ${b.room_type}</h4>
+              <p style="margin:0;color:var(--gray-600);font-size:13px;">${formatDate(b.checkin_date)} — ${formatDate(b.checkout_date)}</p>
+            </div>
+            <span style="background:${statusColor};color:#fff;padding:6px 12px;border-radius:16px;font-weight:600;">${b.status}</span>
+          </div>
+        </div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    function getStatusColor(status) {
+      switch (status) {
+        case 'Checked In': return '#27ae60';
+        case 'Checked Out': return '#7f8c8d';
+        case 'Pending': return '#f39c12';
+        case 'Cancelled': return '#e74c3c';
+        default: return '#95a5a6';
+      }
+    }
+
+    // ROOMS
+    async function loadRooms() {
+      const container = document.getElementById('rooms-gallery');
+      container.innerHTML = '<div class="loading">Loading rooms...</div>';
+      try {
+        const res = await fetch(`${API_URL}/rooms`);
+        const data = await res.json();
+        if (data.success) {
+          allRooms = data.rooms || [];
+          displayRooms(allRooms);
+        } else {
+          container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-exclamation-circle"></i><p>No rooms found.</p></div>';
+        }
+      } catch (err) {
+        console.error('loadRooms err', err);
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-exclamation-circle"></i><p>Error loading rooms.</p></div>';
+      }
+    }
+
+    function displayRooms(rooms) {
+      const container = document.getElementById('rooms-gallery');
+      if (!rooms || rooms.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-bed"></i><p>No rooms available.</p></div>';
+        return;
+      }
+      // build cards with data-room-id and event delegation
+      let html = '<div class="room-gallery">';
+      rooms.forEach((room, idx) => {
+        const imageUrl = room.image_url || 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800';
+        const amenitiesList = (room.amenities || '').split(',').slice(0,3).map(a => a.trim()).filter(Boolean);
+        html += `
+          <div class="room-card" data-room-id="${room.id || idx}" style="cursor:pointer;">
+            <img src="${imageUrl}" alt="${escapeHtml(room.room_type)}" onerror="this.src='https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800'">
+            <div class="room-card-body">
+              <h4>${escapeHtml(room.room_type)}</h4>
+              <p>${escapeHtml(room.description || 'Comfortable and well-equipped room for your stay.')}</p>
+              <div class="amenities">
+                ${amenitiesList.map(a => `<span class="amenity-tag"><i class="fa-solid fa-check"></i> ${escapeHtml(a)}</span>`).join('')}
+              </div>
+              <span class="price">$${Number(room.price || 0).toLocaleString()}<small>/night</small></span>
+            </div>
+          </div>`;
+      });
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    // event delegation for room cards (safer than inline onclick JSON)
+    document.addEventListener('click', (ev) => {
+      const roomCard = ev.target.closest('.room-card');
+      if (roomCard && roomCard.dataset.roomId !== undefined) {
+        const id = roomCard.dataset.roomId;
+        // find room by id (or index fallback)
+        const room = allRooms.find(r => String(r.id) === String(id)) || allRooms[Number(id)];
+        if (room) openRoomModal(room);
+      }
+    });
+
+    function filterRooms() {
+      const v = document.getElementById('room-filter').value;
+      if (v === 'all') displayRooms(allRooms);
+      else displayRooms(allRooms.filter(r => r.room_type === v));
+    }
+
+    function openRoomModal(room) {
+      const modal = document.getElementById('roomModal');
+      document.getElementById('roomModal-image').src = room.image_url || 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800';
+      document.getElementById('roomModal-type').textContent = room.room_type;
+      document.getElementById('roomModal-desc').textContent = room.description || 'Comfortable and well-equipped room for your stay.';
+      document.getElementById('roomModal-price').innerHTML = `$${Number(room.price || 0).toLocaleString()} <small>/night</small>`;
+
+      const amenCont = document.getElementById('roomModal-amenities');
+      amenCont.innerHTML = (room.amenities || '').split(',').map(a => a.trim()).filter(Boolean).map(a => `<span class="amenity-tag"><i class="fa-solid fa-check"></i> ${escapeHtml(a)}</span>`).join('');
+
+      // store the room object on the modal for later booking
+      modal.dataset.roomId = room.id || '';
+      modal.style.display = 'flex';
+    }
+
+    function closeRoomModal() {
+      const modal = document.getElementById('roomModal');
+      modal.style.display = 'none';
+      delete modal.dataset.roomId;
+    }
+
+    function quickBookRoomFromModal() {
+      const modal = document.getElementById('roomModal');
+      const roomId = modal.dataset.roomId;
+      const room = allRooms.find(r => String(r.id) === String(roomId));
+      closeRoomModal();
+      showSection('booking');
+      if (room) {
+        document.getElementById('booking-room-type').value = room.room_type || '';
+        loadAvailableRooms();
+      }
+    }
+
+    // BOOKINGS
+    async function loadAvailableRooms() {
+      const roomType = document.getElementById('booking-room-type').value;
+      const select = document.getElementById('booking-room-number');
+      const checkin = document.getElementById('booking-checkin').value;
+      const checkout = document.getElementById('booking-checkout').value;
+
+      // reset quote
+      updateBookingQuote(null);
+
+      if (!roomType) {
+        select.innerHTML = '<option value="">-- Select room type first --</option>';
+        return;
+      }
+
+      // require dates to show date-aware availability (better UX)
+      if (!checkin || !checkout) {
+        select.innerHTML = '<option value="">Select check-in and check-out dates</option>';
+        return;
+      }
+
+      // validate date order
+      if (new Date(checkout) <= new Date(checkin)) {
+        select.innerHTML = '<option value="">Check-out must be after check-in</option>';
+        return;
+      }
+
+      select.innerHTML = '<option>Loading...</option>';
+      try {
+        const params = new URLSearchParams({
+          checkin: checkin,
+          checkout: checkout
+        });
+        const res = await fetch(`${API_URL}/rooms/available/${encodeURIComponent(roomType)}?${params.toString()}`);
+        const data = await res.json();
+        if (data.success) {
+          if (!data.rooms || data.rooms.length === 0) {
+            select.innerHTML = '<option value="">No rooms available for selected dates</option>';
+          } else {
+            select.innerHTML = '<option value="">-- Select Room --</option>' + data.rooms.map(r=>`<option value="${r.room_number}" data-price="${r.price || 0}">${r.room_number}</option>`).join('');
+          }
+        } else {
+          select.innerHTML = '<option value="">No rooms available</option>';
+        }
+      } catch (err) {
+        console.error('loadAvailableRooms err', err);
+        select.innerHTML = '<option value="">Error loading</option>';
+      }
+    }
+    function getNights(checkin, checkout) {
+  // compute days difference (exclusive nights). If you want inclusive nights (Dec1-3 => 3),
+  // change to: Math.max(1, Math.ceil((checkoutDate - checkinDate) / MS_PER_DAY) + 1)
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+  const inD = new Date(checkin);
+  const outD = new Date(checkout);
+  if (isNaN(inD.getTime()) || isNaN(outD.getTime()) || outD <= inD) return 0;
+  return Math.max(1, Math.ceil((outD.getTime() - inD.getTime()) / MS_PER_DAY));
+}
+function updateBookingQuote(data) {
+  // data = { price: number, nights: number } or null to reset
+  const el = document.getElementById('booking-quote');
+  if (!el) return;
+  if (!data) {
+    el.textContent = 'Total: —';
+    return;
+  }
+  const { price, nights } = data;
+  const total = (Number(price) || 0) * Number(nights || 0);
+  el.textContent = `Total: $${total.toLocaleString()} (${nights} night${nights>1?'s':''} × $${Number(price||0).toLocaleString()} /night)`;
+}
+document.getElementById('booking-room-number').addEventListener('change', function(){
+  const sel = this;
+  const selectedOption = sel.options[sel.selectedIndex];
+  const price = selectedOption ? selectedOption.dataset.price : null;
+  const checkin = document.getElementById('booking-checkin').value;
+  const checkout = document.getElementById('booking-checkout').value;
+  const nights = (checkin && checkout) ? getNights(checkin, checkout) : 0;
+  if (price && nights > 0) updateBookingQuote({ price: Number(price), nights });
+  else updateBookingQuote(null);
+});
+document.getElementById('booking-checkin').addEventListener('change', () => {
+  // reload available rooms if a type is selected (helps show date-aware availability)
+  const roomType = document.getElementById('booking-room-type').value;
+  if (roomType) loadAvailableRooms();
+
+  // update quote
+  const sel = document.getElementById('booking-room-number');
+  const price = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].dataset.price : null;
+  const checkin = document.getElementById('booking-checkin').value;
+  const checkout = document.getElementById('booking-checkout').value;
+  const nights = (checkin && checkout) ? getNights(checkin, checkout) : 0;
+  if (price && nights > 0) updateBookingQuote({ price: Number(price), nights });
+  else updateBookingQuote(null);
+});
+
+document.getElementById('booking-checkout').addEventListener('change', () => {
+  const roomType = document.getElementById('booking-room-type').value;
+  if (roomType) loadAvailableRooms();
+
+  const sel = document.getElementById('booking-room-number');
+  const price = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].dataset.price : null;
+  const checkin = document.getElementById('booking-checkin').value;
+  const checkout = document.getElementById('booking-checkout').value;
+  const nights = (checkin && checkout) ? getNights(checkin, checkout) : 0;
+  if (price && nights > 0) updateBookingQuote({ price: Number(price), nights });
+  else updateBookingQuote(null);
+});
+    async function createBooking() {
+      if (!currentUser || !currentUser.id) { alert('Please login to create a booking.'); return; }
+      const guestName = document.getElementById('booking-guest-name').value.trim();
+      const phone = document.getElementById('booking-phone').value.trim();
+      const roomType = document.getElementById('booking-room-type').value;
+      const checkin = document.getElementById('booking-checkin').value;
+      const checkout = document.getElementById('booking-checkout').value;
+      if (!guestName || !phone || !roomType || !checkin || !checkout) { alert('Please fill all fields'); return; }
+      if (new Date(checkout) <= new Date(checkin)) { alert('Checkout must be after checkin'); return; }
+
+      try {
+        const res = await fetch(`${API_URL}/bookings/online`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            user_id: currentUser.id,
+            guest_name: guestName,
+            room_type: roomType,
+            checkin_date: checkin,
+            checkout_date: checkout,
+            phone
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Booking request submitted successfully! Please wait for receptionist approval.');
+          // clear some fields
+          document.getElementById('booking-room-type').value = '';
+          document.getElementById('booking-room-number').innerHTML = '<option value="">-- Select room type first --</option>';
+          document.getElementById('booking-checkin').value = '';
+          document.getElementById('booking-checkout').value = '';
+          document.getElementById('booking-phone').value = '';
+          // refresh
+          loadMyBookings();
+          loadDashboardData();
+        } else {
+          alert('Error: ' + (data.message || 'Could not create booking'));
+        }
+      } catch (err) {
+        console.error('createBooking err', err);
+        alert('Error creating booking. Try again.');
+      }
+    }
+
+    // MY BOOKINGS
+    async function loadMyBookings() {
+      if (!currentUser || !currentUser.id) {
+        document.getElementById('bookings-container').innerHTML = '<div class="empty-state"><i class="fa-solid fa-user-lock"></i><p>Login to view bookings.</p></div>';
+        return;
+      }
+      const container = document.getElementById('bookings-container');
+      container.innerHTML = '<div class="loading">Loading bookings...</div>';
+      try {
+        const res = await fetch(`${API_URL}/bookings/user/${currentUser.id}`);
+        const data = await res.json();
+        if (data.success) {
+          currentBookings = (data.bookings || []).filter(b => b.status === 'Pending' || b.status === 'Checked In');
+          displayMyBookings(currentBookings);
+        } else {
+          container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-exclamation-circle"></i><p>Error loading bookings.</p></div>';
+        }
+      } catch (err) {
+        console.error('loadMyBookings err', err);
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-exclamation-circle"></i><p>Error loading bookings.</p></div>';
+      }
+    }
+
+    function displayMyBookings(bookings) {
+      const container = document.getElementById('bookings-container');
+      if (!bookings || bookings.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-calendar-check"></i><p>No active bookings.</p></div>';
+        return;
+      }
+      let html = '';
+      bookings.forEach(booking => {
+        const statusColor = getStatusColor(booking.status);
+        const canUploadPayment = booking.receptionist_status === 'accepted' && booking.payment_status === 'Unpaid' && !booking.payment_uploaded;
+        html += `
+          <div class="card" style="padding:24px;margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
+              <div>
+                <h4 style="margin:0 0 6px 0;">Room ${booking.room_number || 'TBD'} — ${booking.room_type}</h4>
+                <p style="margin:0;color:var(--gray-600);font-size:13px;">Guest: ${escapeHtml(booking.guest_name)}</p>
+              </div>
+              <span style="background:${statusColor};color:#fff;padding:6px 12px;border-radius:16px;font-weight:600;">${booking.status}</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:12px;">
+              <div><p style="color:var(--gray-500);margin:0;font-size:13px;">Check-in</p><p style="font-weight:600;margin:6px 0 0 0;">${formatDate(booking.checkin_date)}</p></div>
+              <div><p style="color:var(--gray-500);margin:0;font-size:13px;">Check-out</p><p style="font-weight:600;margin:6px 0 0 0;">${formatDate(booking.checkout_date)}</p></div>
+            </div>
+
+            <div style="padding:12px;background:var(--gray-50);border-radius:8px;margin-bottom:12px;">
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--gray-600);font-size:14px;">Receptionist Status:</span>
+                <span style="font-weight:600;color:${booking.receptionist_status === 'accepted' ? '#27ae60': '#f39c12'};">${escapeHtml(capitalize(booking.receptionist_status || 'pending'))}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-top:8px;">
+                <span style="color:var(--gray-600);font-size:14px;">Payment Status:</span>
+                <span style="font-weight:600;color:${booking.payment_status === 'Paid' ? '#27ae60' : '#e74c3c'};">${escapeHtml(booking.payment_status || 'Unpaid')}</span>
+              </div>
+              ${booking.gcash_number ? `<div style="margin-top:8px;"><span style="color:var(--gray-600);font-size:14px;">GCash:</span><span style="font-weight:600;margin-left:8px;">${escapeHtml(booking.gcash_number)}</span></div>` : ''}
+            </div>
+
+            ${canUploadPayment ? `<button class="btn-primary" onclick="openPaymentUpload(${booking.id})"><i class="fa-solid fa-upload"></i> Upload Payment Proof</button>` : (booking.payment_uploaded && !booking.payment_verified ? `<div style="padding:12px;background:#3498db;color:white;border-radius:8px;text-align:center;">Payment proof uploaded. Awaiting verification.</div>` : '')}
+          </div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    function openPaymentUpload(bookingId) {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          const base64 = evt.target.result;
+          try {
+            const res = await fetch(`${API_URL}/bookings/${bookingId}/upload-payment`, {
+              method: 'PUT',
+              headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({ payment_image: base64 })
+            });
+            const data = await res.json();
+            if (data.success) {
+              alert('Payment proof uploaded! Awaiting verification.');
+              loadMyBookings();
+            } else alert('Error: ' + (data.message || 'Upload failed'));
+          } catch (err) {
+            console.error('uploadPayment err', err);
+            alert('Error uploading payment.');
+          }
+        };
+        reader.readAsDataURL(f);
+      };
+      input.click();
+    }
+
+    // CHECKOUT HISTORY
+    async function loadCheckoutHistory() {
+      if (!currentUser || !currentUser.id) {
+        document.getElementById('checkout-container').innerHTML = '<div class="empty-state"><i class="fa-solid fa-user-lock"></i><p>Login to view history.</p></div>';
+        return;
+      }
+      const container = document.getElementById('checkout-container');
+      container.innerHTML = '<div class="loading">Loading history...</div>';
+      try {
+        const res = await fetch(`${API_URL}/bookings/user/${currentUser.id}`);
+        const data = await res.json();
+        if (data.success) {
+          const done = (data.bookings || []).filter(b => b.status === 'Checked Out');
+          displayCheckoutHistory(done);
+        } else container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-exclamation-circle"></i><p>Error loading history.</p></div>';
+      } catch (err) {
+        console.error('loadCheckoutHistory err', err);
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-exclamation-circle"></i><p>Error loading history.</p></div>';
+      }
+    }
+
+    async function displayCheckoutHistory(bookings) {
+  const container = document.getElementById('checkout-container');
+  if (!bookings || bookings.length === 0) {
+    container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-clock-rotate-left"></i><p>No checkout history.</p></div>';
+    return;
+  }
+  let html = '';
+  for (const b of bookings) {
+    // fetch rating for this booking
+    let ratingObj = null;
+    try {
+      const rRes = await fetch(`${API_URL}/ratings/booking/${b.id}`);
+      const rData = await rRes.json();
+      if (rData.success) ratingObj = rData.rating;
+    } catch (err) {
+      console.warn('Could not fetch rating for booking', b.id, err);
+    }
+
+    const ratingHtml = ratingObj
+      ? `<div style="margin-top:10px;"><strong>Your rating:</strong> ${renderStars(ratingObj.rating)} ${ratingObj.rating}/5${ratingObj.comment ? `<div style="margin-top:6px;color:var(--gray-600);font-size:13px;">${escapeHtml(ratingObj.comment)}</div>` : ''}</div>`
+      : `<div style="margin-top:10px;"><button class="btn-primary" onclick="openRatingUI(${b.id})"><i class="fa-solid fa-star"></i> Rate your stay</button></div>`;
+
+    html += `<div class="card" style="padding:24px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:start;">
+        <div>
+          <h4 style="margin:0 0 6px 0;">Room ${b.room_number} — ${b.room_type}</h4>
+          <p style="margin:0;color:var(--gray-600);font-size:13px;"><i class="fa-solid fa-calendar"></i> ${formatDate(b.checkin_date)} — ${formatDate(b.checkout_date)}</p>
+          <p style="margin-top:6px;color:var(--gray-600);font-size:13px;"><i class="fa-solid fa-user"></i> ${escapeHtml(b.guest_name)}</p>
+        </div>
+        <span style="background: #7f8c8d; color:#fff;padding:6px 12px;border-radius:16px;">Completed</span>
+      </div>
+      ${ratingHtml}
+    </div>`;
+  }
+  container.innerHTML = html;
+}
+
+
+    // PAYMENTS
+    async function loadPayments() {
+      const container = document.getElementById('payments-container');
+      container.innerHTML = '<div class="loading">Loading payments...</div>';
+      try {
+        // fetch user's bookings to get ids
+        if (!currentUser || !currentUser.id) {
+          container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-user-lock"></i><p>Login to view payments.</p></div>';
+          return;
+        }
+        const bRes = await fetch(`${API_URL}/bookings/user/${currentUser.id}`);
+        const bData = await bRes.json();
+        if (!bData.success) { container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-exclamation-circle"></i><p>Error loading payments.</p></div>'; return; }
+        const userBookingIds = (bData.bookings || []).map(b => b.id);
+
+        const pRes = await fetch(`${API_URL}/payments`);
+        const pData = await pRes.json();
+        if (pData.success) {
+          const userPayments = (pData.payments || []).filter(p => userBookingIds.includes(p.booking_id));
+          displayPayments(userPayments);
+        } else container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-exclamation-circle"></i><p>No payments found.</p></div>';
+      } catch (err) {
+        console.error('loadPayments err', err);
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-exclamation-circle"></i><p>Error loading payments.</p></div>';
+      }
+    }
+
+    function displayPayments(payments) {
+      const container = document.getElementById('payments-container');
+      if (!payments || payments.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-credit-card"></i><p>No payment history.</p></div>';
+        return;
+      }
+      let html = '';
+      payments.forEach(p => {
+        html += `<div class="card" style="padding:24px;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
+            <div><h4 style="margin:0 0 6px 0;">${escapeHtml(p.room_type)}</h4><p style="margin:0;color:var(--gray-600);font-size:13px;">Guest: ${escapeHtml(p.guest_name)}</p></div>
+            <span style="background:#27ae60;color:#fff;padding:6px 12px;border-radius:16px;font-weight:600;">${escapeHtml(p.status)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:12px;background:var(--gray-50);border-radius:8px;">
+            <div><p style="color:var(--gray-500);margin:0;font-size:13px;">Amount</p><p style="font-size:24px;font-weight:700;color:var(--primary);margin:6px 0 0 0;">$${Number(p.amount||0).toLocaleString()}</p></div>
+            <div style="text-align:right;"><p style="color:var(--gray-500);margin:0;font-size:13px;">Method</p><p style="font-weight:600;margin:6px 0 0 0;">${escapeHtml(p.payment_method)}</p><p style="color:var(--gray-500);font-size:12px;margin:6px 0 0 0;">${formatDate(p.payment_date)}</p></div>
+          </div>
+        </div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    // UTIL
+    function formatDate(s) {
+      if (!s) return 'N/A';
+      const d = new Date(s);
+      return d.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+    }
+    function capitalize(s){ if(!s) return ''; return s.charAt(0).toUpperCase()+s.slice(1); }
+    function escapeHtml(str){ if(!str && str!==0) return ''; return String(str).replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+
+    // Click outside modals to close
+    window.onclick = function(evt) {
+      const roomModal = document.getElementById('roomModal');
+      const payModal = document.getElementById('paymentModal');
+      if (evt.target === roomModal) closeRoomModal();
+      if (evt.target === payModal) closePaymentModal();
+    };
+
+    // Payment modal helpers (placeholders)
+    function selectPaymentMethod(m){ selectedPaymentMethod = m; document.querySelectorAll('.payment-method').forEach(el=>el.classList.remove('selected')); /* style the selected */ }
+    function confirmPayment(){ alert('Implement confirmPayment() to POST to /payments and update booking'); }
+    function closePaymentModal(){ document.getElementById('paymentModal').style.display = 'none'; }
+// render simple star icons (readonly)
+function renderStars(n) {
+  n = Number(n) || 0;
+  let out = '';
+  for (let i=1;i<=5;i++) {
+    out += `<i class="fa-solid fa-star" style="color:${i<=n ? '#f1c40f':'#ddd'};margin-right:4px;"></i>`;
+  }
+  return out;
+}
+
+// open rating UI modal-ish inline prompt (simple)
+function openRatingUI(bookingId) {
+  // simple prompt flow — you can replace with a nicer modal later
+  const ratingStr = prompt('Rate your stay (1-5 stars). Enter a number 1-5:');
+  if (ratingStr === null) return; // cancelled
+  const rating = Number(ratingStr);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) { alert('Please enter an integer between 1 and 5'); return; }
+  const comment = prompt('Optional: leave a short comment about your stay. Click OK to submit, or Cancel to leave empty.') || '';
+  submitRating(bookingId, rating, comment);
+}
+
+async function submitRating(bookingId, rating, comment) {
+  if (!currentUser || !currentUser.id) { alert('You must be logged in to rate'); return; }
+  try {
+    const res = await fetch(`${API_URL}/ratings`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        booking_id: bookingId,
+        user_id: currentUser.id,
+        rating: rating,
+        comment: comment
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert('Thanks for your rating!');
+      // refresh checkout history to show the posted rating
+      loadCheckoutHistory();
+    } else {
+      alert('Error: ' + (data.message || 'Could not submit rating'));
+    }
+  } catch (err) {
+    console.error('submitRating err', err);
+    alert('Error submitting rating.');
+  }
+}
