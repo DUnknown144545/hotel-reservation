@@ -4,36 +4,38 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin Dashboard - Hotel Reservation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/css/admin.css">
-  <style>
-    /* Minimal inline tweaks so the inserted stars look okay if CSS missing */
-    #report-rating-stars i { margin-right: 4px; }
-    .status-badge { padding: 4px 8px; border-radius: 6px; display:inline-block; font-size: 0.9em; }
-  </style>
 </head>
 <body>
   <div class="sidebar">
-    <h3><i class="fa-solid fa-shield-halved"></i> Admin Panel</h3>
-    <a href="#" class="active" onclick="showSection('dashboard', this)">
-      <i class="fa-solid fa-gauge"></i> Dashboard
-    </a>
-    <a href="#" onclick="showSection('users', this)">
-      <i class="fa-solid fa-users"></i> User Management
-    </a>
-    <a href="#" onclick="showSection('rooms', this)">
-      <i class="fa-solid fa-door-open"></i> Room Management
-    </a>
-    <a href="#" onclick="showSection('bookings', this)">
-      <i class="fa-solid fa-calendar-check"></i> All Bookings
-    </a>
-    <a href="#" onclick="showSection('reports', this)">
-      <i class="fa-solid fa-chart-line"></i> Reports & Analytics
-    </a>
+    <div class="sidebar-header">
+      <h3>Admin Panel</h3>
+      <p id="adminName">Loading...</p>
+    </div>
+    
+    <div>
+      <a href="#" class="active" onclick="showSection('dashboard', this)">
+        <i>📊</i> Dashboard
+      </a>
+      <a href="#" onclick="showSection('users', this)">
+        <i>👥</i> User Management
+      </a>
+      <a href="#" onclick="showSection('rooms', this)">
+        <i>🚪</i> Room Management
+      </a>
+      <a href="#" onclick="showSection('bookings', this)">
+        <i>📋</i> All Bookings
+      </a>
+      <a href="#" onclick="showSection('reports', this)">
+        <i>📈</i> Reports & Analytics
+      </a>
+    </div>
+    
     <div class="bottom">
-      <p id="adminName" style="text-align: center; margin-bottom: 10px; font-weight: bold;"></p>
       <a href="#" onclick="logout()">
-        <i class="fa-solid fa-right-from-bracket"></i> Logout
+        <i>🚪</i> Logout
       </a>
     </div>
   </div>
@@ -41,27 +43,30 @@
   <div class="main-content">
     <!-- DASHBOARD -->
     <section id="dashboard" class="active">
-      <h2><i class="fa-solid fa-house"></i> Dashboard Overview</h2>
+      <div class="page-header">
+        <h2>Dashboard Overview</h2>
+      </div>
+      
       <div class="dashboard-cards">
         <div class="card">
-          <i class="fa-solid fa-bed"></i>
+          <div class="card-icon blue">🛏️</div>
           <h4>Total Rooms</h4>
-          <p id="stat-total-rooms">-</p>
+          <div class="card-value" id="stat-total-rooms">-</div>
         </div>
         <div class="card">
-          <i class="fa-solid fa-door-closed"></i>
+          <div class="card-icon green">🔒</div>
           <h4>Occupied Rooms</h4>
-          <p id="stat-occupied">-</p>
+          <div class="card-value" id="stat-occupied">-</div>
         </div>
         <div class="card">
-          <i class="fa-solid fa-users"></i>
+          <div class="card-icon orange">👥</div>
           <h4>Current Guests</h4>
-          <p id="stat-guests">-</p>
+          <div class="card-value" id="stat-guests">-</div>
         </div>
         <div class="card">
-          <i class="fa-solid fa-dollar-sign"></i>
+          <div class="card-icon purple">💰</div>
           <h4>Monthly Revenue</h4>
-          <p id="stat-revenue">₱ 0.00</p>
+          <div class="card-value" id="stat-revenue">₱ 0.00</div>
         </div>
       </div>
 
@@ -80,64 +85,82 @@
 
     <!-- USERS -->
     <section id="users">
-      <h2><i class="fa-solid fa-users"></i> User Management</h2>
-      <div id="users-container" class="loading">Loading users...</div>
+      <div class="page-header">
+        <h2>User Management</h2>
+      </div>
+      <div class="table-container" id="users-container">
+        <p>Loading users...</p>
+      </div>
     </section>
 
     <!-- ROOMS -->
     <section id="rooms">
-      <h2><i class="fa-solid fa-door-open"></i> Room Management</h2>
-      <button onclick="openAddRoomModal()" style="margin-bottom: 12px;">
+      <div class="page-header">
+        <h2>Room Management</h2>
+      </div>
+      <button class="btn btn-primary" onclick="openAddRoomModal()">
         <i class="fa-solid fa-plus"></i> Add New Room
       </button>
-      <div id="rooms-container" class="loading">Loading rooms...</div>
+      <div class="table-container" id="rooms-container">
+        <p>Loading rooms...</p>
+      </div>
     </section>
 
     <!-- BOOKINGS -->
     <section id="bookings">
-      <h2><i class="fa-solid fa-calendar-check"></i> All Bookings</h2>
-      <div id="bookings-container" class="loading">Loading bookings...</div>
+      <div class="page-header">
+        <h2>All Bookings</h2>
+      </div>
+      <div class="table-container" id="bookings-container">
+        <p>Loading bookings...</p>
+      </div>
     </section>
 
     <!-- REPORTS -->
     <section id="reports">
-      <h2><i class="fa-solid fa-chart-line"></i> Reports & Analytics</h2>
+      <div class="page-header">
+        <h2>Reports & Analytics</h2>
+      </div>
       
       <div class="dashboard-cards">
         <div class="card">
-          <i class="fa-solid fa-calendar-days"></i>
+          <div class="card-icon blue">📅</div>
           <h4>Total Bookings</h4>
-          <p id="report-bookings">-</p>
+          <div class="card-value" id="report-bookings">-</div>
         </div>
         <div class="card">
-          <i class="fa-solid fa-user-check"></i>
+          <div class="card-icon green">✅</div>
           <h4>Registered Users</h4>
-          <p id="report-users">-</p>
+          <div class="card-value" id="report-users">-</div>
         </div>
         <div class="card">
-          <i class="fa-solid fa-percent"></i>
+          <div class="card-icon orange">📊</div>
           <h4>Occupancy Rate</h4>
-          <p id="report-occupancy">-%</p>
+          <div class="card-value" id="report-occupancy">-%</div>
         </div>
         <div class="card">
-          <i class="fa-solid fa-star"></i>
+          <div class="card-icon purple">⭐</div>
           <h4>Average Rating</h4>
-          <p id="report-rating">- / 5</p>
+          <div class="card-value" id="report-rating">- / 5</div>
           <div id="report-rating-stars" style="margin-top:6px;"></div>
         </div>
       </div>
 
       <div class="chart-container">
-        <h3 style="margin-bottom: 20px;">Recent Activity</h3>
-        <p style="color: #666;">System analytics and reporting dashboard</p>
+        <h3>Recent Activity</h3>
+        <p>System analytics and reporting dashboard</p>
       </div>
     </section>
   </div>
 
   <!-- Room Modal -->
-  <div id="roomModal" class="modal" style="display:none;">
+  <div id="roomModal" class="modal">
     <div class="modal-content">
-      <h3 id="roomModalTitle">Add New Room</h3>
+      <div class="modal-header">
+        <h3 id="roomModalTitle">Add New Room</h3>
+        <span class="close-btn" onclick="closeRoomModal()">&times;</span>
+      </div>
+      
       <form id="roomForm" onsubmit="saveRoom(event)">
         <input type="hidden" id="roomId">
         

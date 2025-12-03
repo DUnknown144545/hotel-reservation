@@ -1,264 +1,264 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Receptionist Dashboard - Hotel Reservation</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/recep.css">
-</head>
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receptionist Dashboard - Hotel Reservation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/recep.css">
+  </head>
 
-<body>
-  <div class="sidebar">
-    <div class="sidebar-header">
-      <h3>Receptionist</h3>
-      <p id="recName">Loading...</p>
-    </div>
-    
-    <div>
-      <a href="#" class="active" onclick="showSection('dashboard', this)">
-        <i>📊</i> Dashboard
-      </a>
-      <a href="#" onclick="showSection('view-bookings', this)">
-        <i>📋</i> View Bookings
-      </a>
-      <a href="#" onclick="showSection('add-booking', this)">
-        <i>➕</i> Add Booking
-      </a>
-      <a href="#" onclick="showSection('online-bookings', this)">
-        <i>🌐</i> Online Bookings
-      </a>
-    </div>
-    
-    <div class="bottom">
-      <a href="#" onclick="logout()">
-        <i>🚪</i> Logout
-      </a>
-    </div>
-  </div>
-
-  <div class="main-content">
-    <!-- Dashboard Section -->
-    <section id="dashboard" class="active">
-      <div class="page-header">
-        <h2>Dashboard Overview</h2>
+  <body>
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h3>Receptionist</h3>
+        <p id="recName">Loading...</p>
       </div>
       
-      <div class="dashboard-cards">
-      <div class="card">
-        <div class="card-icon blue">📅</div>
-        <h4>Check-ins Today</h4>
-        <div class="card-value" id="checkinsTodayVal">0</div>
+      <div>
+        <a href="#" class="active" onclick="showSection('dashboard', this)">
+          <i>📊</i> Dashboard
+        </a>
+        <a href="#" onclick="showSection('view-bookings', this)">
+          <i>📋</i> View Bookings
+        </a>
+        <a href="#" onclick="showSection('add-booking', this)">
+          <i>➕</i> Add Booking
+        </a>
+        <a href="#" onclick="showSection('online-bookings', this)">
+          <i>🌐</i> Online Bookings
+        </a>
       </div>
-      <div class="card">
-        <div class="card-icon green">🛏️</div>
-        <h4>Available Rooms</h4>
-        <div class="card-value" id="availableRoomsVal">0</div>
-      </div>
-      <div class="card">
-        <div class="card-icon orange">⏳</div>
-        <h4>Pending Bookings</h4>
-        <div class="card-value" id="pendingBookingsVal">0</div>
-      </div>
-      <div class="card">
-        <div class="card-icon purple">👥</div>
-        <h4>Current Guests</h4>
-        <div class="card-value" id="currentGuestsVal">0</div>
+      
+      <div class="bottom">
+        <a href="#" onclick="logout()">
+          <i>🚪</i> Logout
+        </a>
       </div>
     </div>
 
-
-      <div class="calendar">
-        <h3 id="calendarTitle"></h3>
-        <table id="calendarTable">
-          <thead>
-            <tr>
-              <th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th>
-            </tr>
-          </thead>
-          <tbody id="calendarBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- View Bookings Section -->
-    <section id="view-bookings">
-      <div class="page-header">
-        <h2>All Bookings</h2>
-      </div>
-      
-      <div class="table-container" id="viewBookingsContainer">
-        <p>Loading bookings...</p>
-      </div>
-    </section>
-
-    <!-- Add Booking Section -->
-    <section id="add-booking">
-      <div class="page-header">
-        <h2>Add Manual Booking</h2>
-      </div>
-      
-      <div class="table-container">
-        <form id="manualBookingForm">
-          <div class="form-group">
-            <label>Guest Name</label>
-            <input type="text" id="manualGuestName" required>
-          </div>
-          
-          <div class="form-group">
-            <label>Phone</label>
-            <input type="text" id="manualPhone" required>
-          </div>
-          
-          <div class="form-group">
-            <label>Room Type</label>
-            <select id="manualRoomType" onchange="loadManualRooms()" required>
-              <option value="">Select Type</option>
-              <option value="Single Room">Single Room</option>
-              <option value="Double Room">Double Room</option>
-              <option value="Suite">Suite</option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label>Room Number</label>
-            <select id="manualRoomNumber" required>
-              <option value="">Select Room Number</option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label>Check-in Date</label>
-            <input type="date" id="manualCheckin" required>
-          </div>
-          
-          <div class="form-group">
-            <label>Check-out Date</label>
-            <input type="date" id="manualCheckout" required>
-          </div>
-          
-          <div class="form-group">
-            <label>Payment Proof (Image)</label>
-            <input type="file" id="manualPaymentImage" accept="image/*" onchange="previewManualImage(event)" required>
-            <div id="manualImagePreview" class="image-preview"></div>
-          </div>
-          
-          <button type="submit" class="btn btn-primary">Create Booking</button>
-        </form>
-      </div>
-    </section>
-
-    <!-- Online Bookings Section -->
-    <section id="online-bookings">
-      <div class="page-header">
-        <h2>Online Booking Requests</h2>
-      </div>
-      
-      <div class="tabs">
-        <button class="tab active" onclick="showTab('pending')">Pending</button>
-        <button class="tab" onclick="showTab('accepted')">Accepted</button>
-        <button class="tab" onclick="showTab('payment-pending')">Payment Pending</button>
-      </div>
-      
-      <div id="pending" class="tab-content active table-container">
-        <p>Loading pending bookings...</p>
-      </div>
-      
-      <div id="accepted" class="tab-content table-container">
-        <p>Loading accepted bookings...</p>
-      </div>
-      
-      <div id="payment-pending" class="tab-content table-container">
-        <p>Loading payment pending bookings...</p>
-      </div>
-    </section>
-
-    <!-- Payments Section -->
-    <section id="Payments">
-      <div class="page-header">
-        <h2>Payment Management</h2>
-      </div>
-      
-      <div class="tabs">
-        <button class="tab active" onclick="showPaymentTab('all-payments')">All Payments</button>
-        <button class="tab" onclick="showPaymentTab('pending-verification')">Pending Verification</button>
-        <button class="tab" onclick="showPaymentTab('verified-payments')">Verified</button>
-      </div>
-      
-      <div id="all-payments" class="tab-content active table-container">
-        <p>Loading all payments...</p>
-      </div>
-      
-      <div id="pending-verification" class="tab-content table-container">
-        <p>Loading pending verifications...</p>
-      </div>
-      
-      <div id="verified-payments" class="tab-content table-container">
-        <p>Loading verified payments...</p>
-      </div>
-    </section>
-  </div>
-
-  <!-- Payment Modal -->
-  <div id="paymentModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>Verify Payment for Booking #<span id="modalBookingId"></span></h3>
-        <span class="close-btn" onclick="closePaymentModal()">&times;</span>
-      </div>
-      
-      <div id="paymentImageDisplay" class="image-preview"></div>
-      
-      <div class="form-group">
-        <label>Booking Details</label>
-        <div id="bookingDetails" style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
-          <p><strong>Guest:</strong> <span id="modalGuestName"></span></p>
-          <p><strong>Room:</strong> <span id="modalRoomInfo"></span></p>
-          <p><strong>Dates:</strong> <span id="modalDates"></span></p>
+    <div class="main-content">
+      <!-- Dashboard Section -->
+      <section id="dashboard" class="active">
+        <div class="page-header">
+          <h2>Dashboard Overview</h2>
+        </div>
+        
+        <div class="dashboard-cards">
+        <div class="card">
+          <div class="card-icon blue">📅</div>
+          <h4>Check-ins Today</h4>
+          <div class="card-value" id="checkinsTodayVal">0</div>
+        </div>
+        <div class="card">
+          <div class="card-icon green">🛏️</div>
+          <h4>Available Rooms</h4>
+          <div class="card-value" id="availableRoomsVal">0</div>
+        </div>
+        <div class="card">
+          <div class="card-icon orange">⏳</div>
+          <h4>Pending Bookings</h4>
+          <div class="card-value" id="pendingBookingsVal">0</div>
+        </div>
+        <div class="card">
+          <div class="card-icon purple">👥</div>
+          <h4>Current Guests</h4>
+          <div class="card-value" id="currentGuestsVal">0</div>
         </div>
       </div>
-      
-      <div class="form-group">
-        <label>Amount to Verify</label>
-        <input type="number" id="verifyAmount" step="0.01" required>
-      </div>
-      
-      <div style="display: flex; gap: 10px;">
-        <button class="btn btn-primary" onclick="approvePayment()" style="flex: 1;">
-          ✓ Approve Payment
-        </button>
-        <button class="btn" onclick="rejectPayment()" style="flex: 1; background: #dc3545; color: white;">
-          ✗ Reject Payment
-        </button>
+
+
+        <div class="calendar">
+          <h3 id="calendarTitle"></h3>
+          <table id="calendarTable">
+            <thead>
+              <tr>
+                <th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th>
+              </tr>
+            </thead>
+            <tbody id="calendarBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- View Bookings Section -->
+      <section id="view-bookings">
+        <div class="page-header">
+          <h2>All Bookings</h2>
+        </div>
+        
+        <div class="table-container" id="viewBookingsContainer">
+          <p>Loading bookings...</p>
+        </div>
+      </section>
+
+      <!-- Add Booking Section -->
+      <section id="add-booking">
+        <div class="page-header">
+          <h2>Add Manual Booking</h2>
+        </div>
+        
+        <div class="table-container">
+          <form id="manualBookingForm">
+            <div class="form-group">
+              <label>Guest Name</label>
+              <input type="text" id="manualGuestName" required>
+            </div>
+            
+            <div class="form-group">
+              <label>Phone</label>
+              <input type="text" id="manualPhone" required>
+            </div>
+            
+            <div class="form-group">
+              <label>Room Type</label>
+              <select id="manualRoomType" onchange="loadManualRooms()" required>
+                <option value="">Select Type</option>
+                <option value="Single Room">Single Room</option>
+                <option value="Double Room">Double Room</option>
+                <option value="Suite">Suite</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label>Room Number</label>
+              <select id="manualRoomNumber" required>
+                <option value="">Select Room Number</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label>Check-in Date</label>
+              <input type="date" id="manualCheckin" required>
+            </div>
+            
+            <div class="form-group">
+              <label>Check-out Date</label>
+              <input type="date" id="manualCheckout" required>
+            </div>
+            
+            <div class="form-group">
+              <label>Payment Proof (Image)</label>
+              <input type="file" id="manualPaymentImage" accept="image/*" onchange="previewManualImage(event)" required>
+              <div id="manualImagePreview" class="image-preview"></div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Create Booking</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- Online Bookings Section -->
+      <section id="online-bookings">
+        <div class="page-header">
+          <h2>Online Booking Requests</h2>
+        </div>
+        
+        <div class="tabs">
+          <button class="tab active" onclick="showTab('pending')">Pending</button>
+          <button class="tab" onclick="showTab('accepted')">Accepted</button>
+          <button class="tab" onclick="showTab('payment-pending')">Payment Pending</button>
+        </div>
+        
+        <div id="pending" class="tab-content active table-container">
+          <p>Loading pending bookings...</p>
+        </div>
+        
+        <div id="accepted" class="tab-content table-container">
+          <p>Loading accepted bookings...</p>
+        </div>
+        
+        <div id="payment-pending" class="tab-content table-container">
+          <p>Loading payment pending bookings...</p>
+        </div>
+      </section>
+
+      <!-- Payments Section -->
+      <section id="Payments">
+        <div class="page-header">
+          <h2>Payment Management</h2>
+        </div>
+        
+        <div class="tabs">
+          <button class="tab active" onclick="showPaymentTab('all-payments')">All Payments</button>
+          <button class="tab" onclick="showPaymentTab('pending-verification')">Pending Verification</button>
+          <button class="tab" onclick="showPaymentTab('verified-payments')">Verified</button>
+        </div>
+        
+        <div id="all-payments" class="tab-content active table-container">
+          <p>Loading all payments...</p>
+        </div>
+        
+        <div id="pending-verification" class="tab-content table-container">
+          <p>Loading pending verifications...</p>
+        </div>
+        
+        <div id="verified-payments" class="tab-content table-container">
+          <p>Loading verified payments...</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Verify Payment for Booking #<span id="modalBookingId"></span></h3>
+          <span class="close-btn" onclick="closePaymentModal()">&times;</span>
+        </div>
+        
+        <div id="paymentImageDisplay" class="image-preview"></div>
+        
+        <div class="form-group">
+          <label>Booking Details</label>
+          <div id="bookingDetails" style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+            <p><strong>Guest:</strong> <span id="modalGuestName"></span></p>
+            <p><strong>Room:</strong> <span id="modalRoomInfo"></span></p>
+            <p><strong>Dates:</strong> <span id="modalDates"></span></p>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>Amount to Verify</label>
+          <input type="number" id="verifyAmount" step="0.01" required>
+        </div>
+        
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-primary" onclick="approvePayment()" style="flex: 1;">
+            ✓ Approve Payment
+          </button>
+          <button class="btn" onclick="rejectPayment()" style="flex: 1; background: #dc3545; color: white;">
+            ✗ Reject Payment
+          </button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Accept Booking Modal -->
-  <div id="acceptBookingModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>Accept Booking #<span id="acceptModalBookingId"></span></h3>
-        <span class="close-btn" onclick="closeAcceptModal()">&times;</span>
+    <!-- Accept Booking Modal -->
+    <div id="acceptBookingModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Accept Booking #<span id="acceptModalBookingId"></span></h3>
+          <span class="close-btn" onclick="closeAcceptModal()">&times;</span>
+        </div>
+        
+        <div class="form-group">
+          <label>Assign Room Number</label>
+          <select id="acceptRoomNumber" required>
+            <option value="">Select Room Number</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>GCash Number (for payment)</label>
+          <input type="text" id="acceptGcashNumber" placeholder="09XX XXX XXXX" required>
+        </div>
+        
+        <button class="btn btn-primary" onclick="confirmAcceptBooking()">Accept & Send Details</button>
       </div>
-      
-      <div class="form-group">
-        <label>Assign Room Number</label>
-        <select id="acceptRoomNumber" required>
-          <option value="">Select Room Number</option>
-        </select>
-      </div>
-      
-      <div class="form-group">
-        <label>GCash Number (for payment)</label>
-        <input type="text" id="acceptGcashNumber" placeholder="09XX XXX XXXX" required>
-      </div>
-      
-      <button class="btn btn-primary" onclick="confirmAcceptBooking()">Accept & Send Details</button>
     </div>
-  </div>
 
-  
-  <script src="js/receptionist.js"></script>
-</body>
-</html>
+    
+    <script src="js/receptionist.js"></script>
+  </body>
+  </html>

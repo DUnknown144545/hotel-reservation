@@ -548,7 +548,7 @@ async function loadAverageRating() {
       if (halfStar) starsHtml += '<i class="fa-solid fa-star-half-stroke"></i>';
       for (let i = fullStars + (halfStar ? 1 : 0); i < 5; i++)
         starsHtml += '<i class="fa-regular fa-star"></i>';
-      starsContainer.innerHTML = `<div style="color:#f1c40f; font-size:12px;">${starsHtml}</div>`;
+      starsContainer.innerHTML = `<div style="color:#f1c40f; font-size:14px;">${starsHtml}</div>`;
     } else {
       starsContainer.innerHTML =
         '<small style="color:#777;">No ratings yet</small>';
