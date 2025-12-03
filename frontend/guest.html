@@ -4,36 +4,41 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Guest Dashboard - Hotel Reservation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/css/guest.css">
 </head>
 <body>
   <div class="sidebar">
-    <div>
+    <div class="sidebar-header">
       <h3>Guest Panel</h3>
+      <p id="guestName">Loading...</p>
+    </div>
+    
+    <div>
       <a href="#" class="active" onclick="showSection('dashboard', this)">
-        <i class="fa-solid fa-gauge"></i> Dashboard
+        <i>📊</i> Dashboard
       </a>
       <a href="#" onclick="showSection('browse-rooms', this)">
-        <i class="fa-solid fa-bed"></i> Browse Rooms
+        <i>🛏️</i> Browse Rooms
       </a>
       <a href="#" onclick="showSection('booking', this)">
-        <i class="fa-solid fa-calendar-plus"></i> New Booking
+        <i>➕</i> New Booking
       </a>
       <a href="#" onclick="showSection('my-bookings', this)">
-        <i class="fa-solid fa-calendar-check"></i> My Bookings
+        <i>📋</i> My Bookings
       </a>
       <a href="#" onclick="showSection('checkout-history', this)">
-        <i class="fa-solid fa-clock-rotate-left"></i> Checkout History
+        <i>🕐</i> Checkout History
       </a>
       <a href="#" onclick="showSection('payments', this)">
-        <i class="fa-solid fa-credit-card"></i> Payments
+        <i>💳</i> Payments
       </a>
     </div>
+    
     <div class="bottom">
-      <p id="guestName" style="margin: 0 0 10px 0; text-align: center;"></p>
       <a href="#" onclick="logout()">
-        <i class="fa-solid fa-right-from-bracket"></i> Logout
+        <i>🚪</i> Logout
       </a>
     </div>
   </div>
@@ -41,29 +46,35 @@
   <div class="main-content">
     <!-- DASHBOARD -->
     <section id="dashboard" class="active">
-      <h2>Welcome Back!</h2>
+      <div class="page-header">
+        <h2>Welcome Back!</h2>
+      </div>
 
       <!-- Stats -->
       <div class="dashboard-cards">
-        <div class="card card-stat">
-          <div class="card-head"><i class="fa-solid fa-calendar-check"></i> <span>Total Bookings</span></div>
-          <p id="stat-total-bookings">0</p>
+        <div class="card">
+          <div class="card-icon blue">📅</div>
+          <h4>Total Bookings</h4>
+          <div class="card-value" id="stat-total-bookings">0</div>
         </div>
-        <div class="card card-stat">
-          <div class="card-head"><i class="fa-solid fa-bed"></i> <span>Active Stays</span></div>
-          <p id="stat-active-stays">0</p>
+        <div class="card">
+          <div class="card-icon green">🛏️</div>
+          <h4>Active Stays</h4>
+          <div class="card-value" id="stat-active-stays">0</div>
         </div>
-        <div class="card card-stat">
-          <div class="card-head"><i class="fa-solid fa-clock"></i> <span>Pending</span></div>
-          <p id="stat-pending">0</p>
+        <div class="card">
+          <div class="card-icon orange">⏳</div>
+          <h4>Pending</h4>
+          <div class="card-value" id="stat-pending">0</div>
         </div>
-        <div class="card card-stat">
-          <div class="card-head"><i class="fa-solid fa-check-circle"></i> <span>Completed</span></div>
-          <p id="stat-completed">0</p>
+        <div class="card">
+          <div class="card-icon purple">✅</div>
+          <h4>Completed</h4>
+          <div class="card-value" id="stat-completed">0</div>
         </div>
       </div>
 
-      <h3 style="margin-top: 30px;">Quick Actions</h3>
+      <h3>Quick Actions</h3>
       <div class="dashboard-cards actions">
         <div class="card action" style="cursor: pointer;" onclick="showSection('browse-rooms')">
           <i class="fa-solid fa-bed" style="font-size: 48px; margin-bottom: 10px;"></i>
@@ -77,7 +88,7 @@
         </div>
       </div>
 
-      <h3 style="margin-top: 30px;">Recent Activity</h3>
+      <h3>Recent Activity</h3>
       <div id="recent-activity" class="card-list">
         <div class="empty-state"><i class="fa-solid fa-clock"></i><p>No recent activity.</p></div>
       </div>
@@ -85,7 +96,10 @@
 
     <!-- BROWSE ROOMS -->
     <section id="browse-rooms">
-      <h2>Available Rooms</h2>
+      <div class="page-header">
+        <h2>Available Rooms</h2>
+      </div>
+      
       <div class="filter-bar">
         <label><strong>Filter by Type:</strong></label>
         <select id="room-filter" onchange="filterRooms()">
@@ -123,7 +137,10 @@
 
     <!-- NEW BOOKING -->
     <section id="booking">
-      <h2>Create New Booking</h2>
+      <div class="page-header">
+        <h2>Create New Booking</h2>
+      </div>
+      
       <div class="booking-form">
         <div class="form-group">
           <label>Your Name:</label>
@@ -170,28 +187,48 @@
 
     <!-- MY BOOKINGS -->
     <section id="my-bookings">
-      <h2>My Bookings</h2>
-      <p class="muted">Shows your active and pending bookings. You can pay for pending bookings from here.</p>
-      <div id="bookings-container" class="loading">Loading bookings...</div>
+      <div class="page-header">
+        <h2>My Bookings</h2>
+        <p class="muted">Shows your active and pending bookings. You can pay for pending bookings from here.</p>
+      </div>
+      
+      <div class="table-container" id="bookings-container">
+        <p>Loading bookings...</p>
+      </div>
     </section>
 
     <!-- CHECKOUT HISTORY -->
     <section id="checkout-history">
-      <h2>Checkout History</h2>
-      <p class="muted">Completed stays are listed here.</p>
-      <div id="checkout-container" class="loading">Loading checkout history...</div>
+      <div class="page-header">
+        <h2>Checkout History</h2>
+        <p class="muted">Completed stays are listed here.</p>
+      </div>
+      
+      <div class="table-container" id="checkout-container">
+        <p>Loading checkout history...</p>
+      </div>
     </section>
 
     <!-- PAYMENTS -->
     <section id="payments">
-      <h2>Payment History</h2>
-      <div id="payments-container" class="loading">Loading payments...</div>
+      <div class="page-header">
+        <h2>Payment History</h2>
+      </div>
+      
+      <div class="table-container" id="payments-container">
+        <p>Loading payments...</p>
+      </div>
     </section>
+  </div>
 
   <!-- Payment Modal -->
   <div id="paymentModal" class="modal" style="display:none;">
     <div class="modal-content">
-      <h3><i class="fa-solid fa-credit-card"></i> Complete Payment</h3>
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-credit-card"></i> Complete Payment</h3>
+        <span class="close-btn" onclick="closePaymentModal()">&times;</span>
+      </div>
+      
       <div class="payment-summary" id="payment-summary"></div>
 
       <label style="display: block; margin-bottom: 10px; font-weight: bold;">Select Payment Method:</label>
