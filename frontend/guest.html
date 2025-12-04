@@ -1,259 +1,259 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Guest Dashboard - Hotel Reservation</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="/css/guest.css">
-</head>
-<body>
-  <div class="sidebar">
-    <div class="sidebar-header">
-      <h3>Guest Panel</h3>
-      <p id="guestName">Loading...</p>
-    </div>
-    
-    <div>
-      <a href="#" class="active" onclick="showSection('dashboard', this)">
-        <i>📊</i> Dashboard
-      </a>
-      <a href="#" onclick="showSection('browse-rooms', this)">
-        <i>🛏️</i> Browse Rooms
-      </a>
-      <a href="#" onclick="showSection('booking', this)">
-        <i>➕</i> New Booking
-      </a>
-      <a href="#" onclick="showSection('my-bookings', this)">
-        <i>📋</i> My Bookings
-      </a>
-      <a href="#" onclick="showSection('checkout-history', this)">
-        <i>🕐</i> Checkout History
-      </a>
-      <a href="#" onclick="showSection('payments', this)">
-        <i>💳</i> Payments
-      </a>
-    </div>
-    
-    <div class="bottom">
-      <a href="#" onclick="logout()">
-        <i>🚪</i> Logout
-      </a>
-    </div>
-  </div>
-
-  <div class="main-content">
-    <!-- DASHBOARD -->
-    <section id="dashboard" class="active">
-      <div class="page-header">
-        <h2>Welcome Back!</h2>
-      </div>
-
-      <!-- Stats -->
-      <div class="dashboard-cards">
-        <div class="card">
-          <div class="card-icon blue">📅</div>
-          <h4>Total Bookings</h4>
-          <div class="card-value" id="stat-total-bookings">0</div>
-        </div>
-        <div class="card">
-          <div class="card-icon green">🛏️</div>
-          <h4>Active Stays</h4>
-          <div class="card-value" id="stat-active-stays">0</div>
-        </div>
-        <div class="card">
-          <div class="card-icon orange">⏳</div>
-          <h4>Pending</h4>
-          <div class="card-value" id="stat-pending">0</div>
-        </div>
-        <div class="card">
-          <div class="card-icon purple">✅</div>
-          <h4>Completed</h4>
-          <div class="card-value" id="stat-completed">0</div>
-        </div>
-      </div>
-
-      <h3>Quick Actions</h3>
-      <div class="dashboard-cards actions">
-        <div class="card action" style="cursor: pointer;" onclick="showSection('browse-rooms')">
-          <i class="fa-solid fa-bed" style="font-size: 48px; margin-bottom: 10px;"></i>
-          <h4>Browse Rooms</h4>
-          <p style="font-size: 14px; color: #666; font-weight: normal;">Explore available rooms</p>
-        </div>
-        <div class="card action" style="cursor: pointer;" onclick="showSection('booking')">
-          <i class="fa-solid fa-calendar-plus" style="font-size: 48px; margin-bottom: 10px;"></i>
-          <h4>New Booking</h4>
-          <p style="font-size: 14px; color: #666; font-weight: normal;">Create a reservation</p>
-        </div>
-      </div>
-
-      <h3>Recent Activity</h3>
-      <div id="recent-activity" class="card-list">
-        <div class="empty-state"><i class="fa-solid fa-clock"></i><p>No recent activity.</p></div>
-      </div>
-    </section>
-
-    <!-- BROWSE ROOMS -->
-    <section id="browse-rooms">
-      <div class="page-header">
-        <h2>Available Rooms</h2>
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Guest Dashboard - Hotel Reservation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/guest.css">
+  </head>
+  <body>
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h3>Guest Panel</h3>
+        <p id="guestName">Loading...</p>
       </div>
       
-      <div class="filter-bar">
-        <label><strong>Filter by Type:</strong></label>
-        <select id="room-filter" onchange="filterRooms()">
-          <option value="all">All Rooms</option>
-          <option value="Single Room">Single Room</option>
-          <option value="Double Room">Double Room</option>
-          <option value="Suite">Suite</option>
-        </select>
+      <div>
+        <a href="#" class="active" onclick="showSection('dashboard', this)">
+          <i>📊</i> Dashboard
+        </a>
+        <a href="#" onclick="showSection('browse-rooms', this)">
+          <i>🛏️</i> Browse Rooms
+        </a>
+        <a href="#" onclick="showSection('booking', this)">
+          <i>➕</i> New Booking
+        </a>
+        <a href="#" onclick="showSection('my-bookings', this)">
+          <i>📋</i> My Bookings
+        </a>
+        <a href="#" onclick="showSection('checkout-history', this)">
+          <i>🕐</i> Checkout History
+        </a>
+        <a href="#" onclick="showSection('payments', this)">
+          <i>💳</i> Payments
+        </a>
       </div>
-      <div id="rooms-gallery" class="loading">Loading rooms...</div>
-    </section>
+      
+      <div class="bottom">
+        <a href="#" onclick="logout()">
+          <i>🚪</i> Logout
+        </a>
+      </div>
+    </div>
 
-    <!-- Room Detail Modal -->
-    <div id="roomModal" class="modal" aria-hidden="true" style="display:none;">
-      <div class="modal-content">
-        <button class="modal-close" onclick="closeRoomModal()"><i class="fa-solid fa-times"></i></button>
-        <div class="room-modal-body">
-          <div class="room-image">
-            <img id="roomModal-image" src="" alt="Room image" onerror="this.src='https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800'">
+    <div class="main-content">
+      <!-- DASHBOARD -->
+      <section id="dashboard" class="active">
+        <div class="page-header">
+          <h2>Welcome Back!</h2>
+        </div>
+
+        <!-- Stats -->
+        <div class="dashboard-cards">
+          <div class="card">
+            <div class="card-icon blue">📅</div>
+            <h4>Total Bookings</h4>
+            <div class="card-value" id="stat-total-bookings">0</div>
           </div>
-          <div class="room-info">
-            <h3 id="roomModal-type">Room Type</h3>
-            <p id="roomModal-desc">Room description...</p>
-            <div id="roomModal-amenities" class="amenities"></div>
-            <p id="roomModal-price" class="price"></p>
+          <div class="card">
+            <div class="card-icon green">🛏️</div>
+            <h4>Active Stays</h4>
+            <div class="card-value" id="stat-active-stays">0</div>
+          </div>
+          <div class="card">
+            <div class="card-icon orange">⏳</div>
+            <h4>Pending</h4>
+            <div class="card-value" id="stat-pending">0</div>
+          </div>
+          <div class="card">
+            <div class="card-icon purple">✅</div>
+            <h4>Completed</h4>
+            <div class="card-value" id="stat-completed">0</div>
+          </div>
+        </div>
 
-            <div class="modal-actions">
-              <button onclick="quickBookRoomFromModal()" class="btn-primary"><i class="fa-solid fa-calendar-check"></i> Book This Room</button>
-              <button onclick="closeRoomModal()" class="btn-secondary">Close</button>
+        <h3>Quick Actions</h3>
+        <div class="dashboard-cards actions">
+          <div class="card action" style="cursor: pointer;" onclick="showSection('browse-rooms')">
+            <i class="fa-solid fa-bed" style="font-size: 48px; margin-bottom: 10px;"></i>
+            <h4>Browse Rooms</h4>
+            <p style="font-size: 14px; color: #666; font-weight: normal;">Explore available rooms</p>
+          </div>
+          <div class="card action" style="cursor: pointer;" onclick="showSection('booking')">
+            <i class="fa-solid fa-calendar-plus" style="font-size: 48px; margin-bottom: 10px;"></i>
+            <h4>New Booking</h4>
+            <p style="font-size: 14px; color: #666; font-weight: normal;">Create a reservation</p>
+          </div>
+        </div>
+
+        <h3>Recent Activity</h3>
+        <div id="recent-activity" class="card-list">
+          <div class="empty-state"><i class="fa-solid fa-clock"></i><p>No recent activity.</p></div>
+        </div>
+      </section>
+
+      <!-- BROWSE ROOMS -->
+      <section id="browse-rooms">
+        <div class="page-header">
+          <h2>Available Rooms</h2>
+        </div>
+        
+        <div class="filter-bar">
+          <label><strong>Filter by Type:</strong></label>
+          <select id="room-filter" onchange="filterRooms()">
+            <option value="all">All Rooms</option>
+            <option value="Single Room">Single Room</option>
+            <option value="Double Room">Double Room</option>
+            <option value="Suite">Suite</option>
+          </select>
+        </div>
+        <div id="rooms-gallery" class="loading">Loading rooms...</div>
+      </section>
+
+      <!-- Room Detail Modal -->
+      <div id="roomModal" class="modal" aria-hidden="true" style="display:none;">
+        <div class="modal-content">
+          <button class="modal-close" onclick="closeRoomModal()"><i class="fa-solid fa-times"></i></button>
+          <div class="room-modal-body">
+            <div class="room-image">
+              <img id="roomModal-image" src="" alt="Room image" onerror="this.src='https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800'">
+            </div>
+            <div class="room-info">
+              <h3 id="roomModal-type">Room Type</h3>
+              <p id="roomModal-desc">Room description...</p>
+              <div id="roomModal-amenities" class="amenities"></div>
+              <p id="roomModal-price" class="price"></p>
+
+              <div class="modal-actions">
+                <button onclick="quickBookRoomFromModal()" class="btn-primary"><i class="fa-solid fa-calendar-check"></i> Book This Room</button>
+                <button onclick="closeRoomModal()" class="btn-secondary">Close</button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- NEW BOOKING -->
+      <section id="booking">
+        <div class="page-header">
+          <h2>Create New Booking</h2>
+        </div>
+        
+        <div class="booking-form">
+          <div class="form-group">
+            <label>Your Name:</label>
+            <input type="text" id="booking-guest-name" placeholder="Enter your full name" required>
+          </div>
+
+          <div class="form-group">
+            <label>Phone Number:</label>
+            <input type="text" id="booking-phone" placeholder="+63 XXX-XXX-XXXX" required>
+          </div>
+
+          <div class="form-group">
+            <label>Room Type:</label>
+            <select id="booking-room-type" onchange="loadAvailableRooms()">
+              <option value="">-- Select Room Type --</option>
+              <option value="Single Room">Single Room - $50/night</option>
+              <option value="Double Room">Double Room - $80/night</option>
+              <option value="Suite">Suite - $120/night</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Room Number:</label>
+            <select id="booking-room-number">
+              <option value="">-- Select room type first --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Check-in Date:</label>
+            <input type="date" id="booking-checkin" required>
+          </div>
+
+          <div class="form-group">
+            <label>Check-out Date:</label>
+            <input type="date" id="booking-checkout" required>
+          </div>
+
+          <button class="btn-primary" onclick="createBooking()">
+            <i class="fa-solid fa-calendar-check"></i> Create Booking & Pay
+          </button>
+        </div>
+      </section>
+
+      <!-- MY BOOKINGS -->
+      <section id="my-bookings">
+        <div class="page-header">
+          <h2>My Bookings</h2>
+          <p class="muted">Shows your active and pending bookings. You can pay for pending bookings from here.</p>
+        </div>
+        
+        <div class="table-container" id="bookings-container">
+          <p>Loading bookings...</p>
+        </div>
+      </section>
+
+      <!-- CHECKOUT HISTORY -->
+      <section id="checkout-history">
+        <div class="page-header">
+          <h2>Checkout History</h2>
+          <p class="muted">Completed stays are listed here.</p>
+        </div>
+        
+        <div class="table-container" id="checkout-container">
+          <p>Loading checkout history...</p>
+        </div>
+      </section>
+
+      <!-- PAYMENTS -->
+      <section id="payments">
+        <div class="page-header">
+          <h2>Payment History</h2>
+        </div>
+        
+        <div class="table-container" id="payments-container">
+          <p>Loading payments...</p>
+        </div>
+      </section>
     </div>
 
-    <!-- NEW BOOKING -->
-    <section id="booking">
-      <div class="page-header">
-        <h2>Create New Booking</h2>
-      </div>
-      
-      <div class="booking-form">
-        <div class="form-group">
-          <label>Your Name:</label>
-          <input type="text" id="booking-guest-name" placeholder="Enter your full name" required>
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3><i class="fa-solid fa-credit-card"></i> Complete Payment</h3>
+          <span class="close-btn" onclick="closePaymentModal()">&times;</span>
+        </div>
+        
+        <div class="payment-summary" id="payment-summary"></div>
+
+        <label style="display: block; margin-bottom: 10px; font-weight: bold;">Select Payment Method:</label>
+        <div class="payment-methods">
+          <div class="payment-method" onclick="selectPaymentMethod('Visa')">
+            <i class="fa-brands fa-cc-visa"></i>
+            <div>Visa</div>
+          </div>
+          <div class="payment-method" onclick="selectPaymentMethod('MasterCard')">
+            <i class="fa-brands fa-cc-mastercard"></i>
+            <div>MasterCard</div>
+          </div>
+          <div class="payment-method" onclick="selectPaymentMethod('GCash')">
+            <i class="fa-solid fa-mobile-screen-button"></i>
+            <div>GCash</div>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label>Phone Number:</label>
-          <input type="text" id="booking-phone" placeholder="+63 XXX-XXX-XXXX" required>
+        <div class="modal-buttons">
+          <button class="btn-confirm" onclick="confirmPayment()"><i class="fa-solid fa-check"></i> Confirm Payment</button>
+          <button class="btn-cancel" onclick="closePaymentModal()"><i class="fa-solid fa-times"></i> Cancel</button>
         </div>
-
-        <div class="form-group">
-          <label>Room Type:</label>
-          <select id="booking-room-type" onchange="loadAvailableRooms()">
-            <option value="">-- Select Room Type --</option>
-            <option value="Single Room">Single Room - $50/night</option>
-            <option value="Double Room">Double Room - $80/night</option>
-            <option value="Suite">Suite - $120/night</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label>Room Number:</label>
-          <select id="booking-room-number">
-            <option value="">-- Select room type first --</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label>Check-in Date:</label>
-          <input type="date" id="booking-checkin" required>
-        </div>
-
-        <div class="form-group">
-          <label>Check-out Date:</label>
-          <input type="date" id="booking-checkout" required>
-        </div>
-
-        <button class="btn-primary" onclick="createBooking()">
-          <i class="fa-solid fa-calendar-check"></i> Create Booking & Pay
-        </button>
-      </div>
-    </section>
-
-    <!-- MY BOOKINGS -->
-    <section id="my-bookings">
-      <div class="page-header">
-        <h2>My Bookings</h2>
-        <p class="muted">Shows your active and pending bookings. You can pay for pending bookings from here.</p>
-      </div>
-      
-      <div class="table-container" id="bookings-container">
-        <p>Loading bookings...</p>
-      </div>
-    </section>
-
-    <!-- CHECKOUT HISTORY -->
-    <section id="checkout-history">
-      <div class="page-header">
-        <h2>Checkout History</h2>
-        <p class="muted">Completed stays are listed here.</p>
-      </div>
-      
-      <div class="table-container" id="checkout-container">
-        <p>Loading checkout history...</p>
-      </div>
-    </section>
-
-    <!-- PAYMENTS -->
-    <section id="payments">
-      <div class="page-header">
-        <h2>Payment History</h2>
-      </div>
-      
-      <div class="table-container" id="payments-container">
-        <p>Loading payments...</p>
-      </div>
-    </section>
-  </div>
-
-  <!-- Payment Modal -->
-  <div id="paymentModal" class="modal" style="display:none;">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3><i class="fa-solid fa-credit-card"></i> Complete Payment</h3>
-        <span class="close-btn" onclick="closePaymentModal()">&times;</span>
-      </div>
-      
-      <div class="payment-summary" id="payment-summary"></div>
-
-      <label style="display: block; margin-bottom: 10px; font-weight: bold;">Select Payment Method:</label>
-      <div class="payment-methods">
-        <div class="payment-method" onclick="selectPaymentMethod('Visa')">
-          <i class="fa-brands fa-cc-visa"></i>
-          <div>Visa</div>
-        </div>
-        <div class="payment-method" onclick="selectPaymentMethod('MasterCard')">
-          <i class="fa-brands fa-cc-mastercard"></i>
-          <div>MasterCard</div>
-        </div>
-        <div class="payment-method" onclick="selectPaymentMethod('GCash')">
-          <i class="fa-solid fa-mobile-screen-button"></i>
-          <div>GCash</div>
-        </div>
-      </div>
-
-      <div class="modal-buttons">
-        <button class="btn-confirm" onclick="confirmPayment()"><i class="fa-solid fa-check"></i> Confirm Payment</button>
-        <button class="btn-cancel" onclick="closePaymentModal()"><i class="fa-solid fa-times"></i> Cancel</button>
       </div>
     </div>
-  </div>
 
-  <script src="js/guest.js"></script>
-</body>
-</html>
+    <script src="js/guest.js"></script>
+  </body>
+  </html>
